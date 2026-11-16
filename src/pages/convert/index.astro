@@ -1,0 +1,73 @@
+---
+import { SITE } from '../../config/site';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import SidebarLinks from '../../components/SidebarLinks.astro';
+import { CONVERSIONS } from '../../data/conversions';
+import { STANDARDS, UNITS, convert, formatNumber } from '../../lib/units';
+import { breadcrumbSchema } from '../../lib/schema';
+
+const title = 'Land Area Conversions: Marla, Kanal, Sq Ft, Gaz & Acre';
+const description =
+  'Ready-made land conversions for Pakistan: 3, 5, 7 and 10 Marla to sq ft, 1 Kanal to sq ft and Marla, 5 Marla to square yards and 1 Acre to Kanal.';
+const site = Astro.site ?? new URL(SITE.url);
+
+const schema = [
+  breadcrumbSchema([
+    { name: 'Home', url: new URL('/', site).href },
+    { name: 'Conversions', url: new URL('/convert/', site).href },
+  ]),
+];
+---
+
+<BaseLayout title={title} description={description} schema={schema} sidebar>
+  <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Conversions' }]} />
+  <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Land Area Conversions</h1>
+  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+    Each page opens the converter pre-filled and shows exact results for the 225, 250 and 272.25 sq ft Marla standards.
+  </p>
+
+  <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Conversion</th>
+          {
+            STANDARDS.map((s) => (
+              <th scope="col" class="text-right">
+                <span class="num block">{s.label}</span>
+                <span class="block text-xs font-medium text-slate-600">{s.name}</span>
+              </th>
+            ))
+          }
+        </tr>
+      </thead>
+      <tbody>
+        {
+          CONVERSIONS.map((c) => (
+            <tr>
+              <th scope="row">
+                <a href={`/convert/${c.slug}/`} class="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-700">
+                  {c.h1}
+                </a>
+              </th>
+              {STANDARDS.map((s) => (
+                <td class="text-right">
+                  {formatNumber(convert(c.value, c.from, c.to, s.id))} {UNITS[c.to].short}
+                </td>
+              ))}
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt-6 leading-7 text-slate-700">
+    Looking for a different value? The <a href="/" class="font-semibold text-brand-700 underline">land area converter</a> handles
+    any amount in any unit, and the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>
+    works from frontage and depth.
+  </p>
+
+  <SidebarLinks slot="sidebar" />
+</BaseLayout>

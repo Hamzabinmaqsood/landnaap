@@ -1,0 +1,137 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PlotCalculator from '../components/PlotCalculator.astro';
+import AdSlot from '../components/AdSlot.astro';
+import Faq from '../components/Faq.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import SidebarLinks from '../components/SidebarLinks.astro';
+import FormulaList from '../components/FormulaList.astro';
+import { SITE } from '../config/site';
+import { PLOT_FAQS, STANDARD_FAQS } from '../data/faqs';
+import { breadcrumbSchema, faqPageSchema, softwareApplicationSchema } from '../lib/schema';
+import { formatNumber, getStandard } from '../lib/units';
+
+const title = 'Plot Size Calculator: Feet to Marla & Kanal (25×45, 35×65)';
+const description =
+  'Enter plot frontage and depth in feet to get sq ft, square yards, exact Marla, Kanal and the closest standard plot size (5 Marla, 10 Marla, 1 Kanal). 225, 250 or 272.25.';
+
+const faqs = [...PLOT_FAQS, ...STANDARD_FAQS];
+const site = Astro.site ?? new URL(SITE.url);
+const url = new URL('/plot-size-calculator/', site).href;
+
+/** Example dimensions that produce standard sizes (exact arithmetic). */
+const examples = [
+  { size: '5 Marla', society: [25, 45], revenue: [27.5, 49.5] },
+  { size: '7 Marla', society: [30, 52.5], revenue: [33, 57.75] },
+  { size: '8 Marla', society: [30, 60], revenue: [33, 66] },
+  { size: '10 Marla', society: [35, 65], revenue: [45, 60.5] },
+  { size: '1 Kanal', society: [50, 90], revenue: [55, 99] },
+  { size: '2 Kanal', society: [75, 120], revenue: [99, 110] },
+];
+const s225 = getStandard('225').sqftPerMarla;
+const s272 = getStandard('272.25').sqftPerMarla;
+
+const schema = [
+  softwareApplicationSchema({
+    name: `${SITE.name} Plot Dimension & Cutting Calculator`,
+    url,
+    description,
+    extraFeatures: [
+      'Calculates plot area from frontage and depth in feet',
+      'Outputs total square feet, square yards, square meters, exact Marla, Kanal and Kanal–Marla–Sarsai breakdown',
+      'Identifies the closest standard plot category (e.g. 5 Marla, 10 Marla, 1 Kanal)',
+    ],
+  }),
+  faqPageSchema(faqs),
+  breadcrumbSchema([
+    { name: 'Home', url: new URL('/', site).href },
+    { name: 'Plot Size Calculator', url },
+  ]),
+];
+---
+
+<BaseLayout title={title} description={description} schema={schema} sidebar>
+  <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Plot Size Calculator' }]} />
+  <div class="mb-6">
+    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Plot Size Calculator</h1>
+    <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+      Turn plot dimensions into square feet, square yards, exact Marla and Kanal, and see which standard plot size it matches.
+      For example, 25 × 45 ft is 5 Marla and 50 × 90 ft is 1 Kanal on the 225 sq ft society standard.
+    </p>
+  </div>
+
+  <PlotCalculator id="plot-calc" initialWidth={25} initialDepth={45} initialStandard="225" />
+
+  <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
+
+  <section class="mt-10" aria-labelledby="dims-heading">
+    <h2 id="dims-heading" class="mb-2 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+      Standard plot sizes and example dimensions
+    </h2>
+    <p class="mb-4 leading-7 text-slate-700">
+      Society dimensions are the layouts commonly used by housing schemes on the 225 sq ft Marla. Revenue examples are exact
+      multiples of the 5.5 ft karam on the 272.25 sq ft Marla. Actual plots vary by scheme, so measure your own plot.
+    </p>
+    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Plot size</th>
+            <th scope="col">Society (225) example</th>
+            <th scope="col" class="text-right">Area</th>
+            <th scope="col">Revenue (272.25) example</th>
+            <th scope="col" class="text-right">Area</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            examples.map((e) => {
+              const a1 = e.society[0] * e.society[1];
+              const a2 = e.revenue[0] * e.revenue[1];
+              return (
+                <tr>
+                  <th scope="row">
+                    {e.size}
+                  </th>
+                  <td>
+                    {formatNumber(e.society[0])} × {formatNumber(e.society[1])} ft
+                  </td>
+                  <td class="text-right">
+                    {formatNumber(a1)} sq ft
+                    <span class="block text-xs text-slate-600">{formatNumber(a1 / s225)} Marla</span>
+                  </td>
+                  <td>
+                    {formatNumber(e.revenue[0])} × {formatNumber(e.revenue[1])} ft
+                  </td>
+                  <td class="text-right">
+                    {formatNumber(a2)} sq ft
+                    <span class="block text-xs text-slate-600">{formatNumber(a2 / s272)} Marla</span>
+                  </td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="prose-content mt-4" aria-labelledby="how-heading">
+    <h2 id="how-heading">How plot cutting is calculated</h2>
+    <ol>
+      <li>Multiply frontage by depth: <strong>Area (sq ft) = Frontage × Depth</strong>.</li>
+      <li>Divide by the Marla size of your scheme: <strong>Marla = Area ÷ 225</strong> (or 250, or 272.25).</li>
+      <li>Divide Marla by 20 to get Kanal. Any remainder is shown as Marla, Sarsai (1/9 Marla) and leftover square feet.</li>
+      <li>The closest standard category is the nearest common plot size. Within ±2.5% it is treated as a match.</li>
+    </ol>
+    <p>
+      Corner plots, irregular shapes and plots with a chamfer need a survey. This calculator assumes a rectangular plot. To
+      convert an area you already know, use the <a href="/">land area converter</a>.
+    </p>
+  </section>
+
+  <FormulaList />
+  <Faq items={faqs} />
+
+  <SidebarLinks slot="sidebar" />
+</BaseLayout>

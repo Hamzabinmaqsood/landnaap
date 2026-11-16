@@ -1,0 +1,361 @@
+---
+import StandardSelector from './StandardSelector.astro';
+import {
+  STANDARDS,
+  calculatePlot,
+  formatNumber,
+  fromSqFt,
+  getStandard,
+  type PlotResult,
+  type StandardId,
+} from '../lib/units';
+
+interface Props {
+  initialWidth?: number;
+  initialDepth?: number;
+  initialStandard?: StandardId;
+  id?: string;
+  heading?: string;
+  headingTag?: 'h1' | 'h2';
+}
+
+const {
+  initialWidth = 25,
+  initialDepth = 45,
+  initialStandard = '225',
+  id = 'plot',
+  heading = 'Plot Dimension & Cutting Calculator',
+  headingTag = 'h2',
+} = Astro.props;
+
+const HeadingTag = headingTag;
+const result: PlotResult | null = calculatePlot(initialWidth, initialDepth, initialStandard);
+const std = getStandard(initialStandard);
+
+function kmsText(r: PlotResult): string {
+  const { kanal, marla, sarsai, sqft } = r.kms;
+  const parts = [`${kanal} Kanal`, `${marla} Marla`, `${sarsai} Sarsai`];
+  if (sqft > 0) parts.push(`${formatNumber(sqft)} sq ft`);
+  return parts.join(' · ');
+}
+
+function closestText(r: PlotResult): { label: string; detail: string; match: boolean } {
+  const c = r.closest;
+  if (!c) return { label: '—', detail: '', match: false };
+  if (c.diffSqft === 0) return { label: c.category.label, detail: 'Exact standard size', match: true };
+  const dir = c.diffSqft > 0 ? 'larger' : 'smaller';
+  return {
+    label: c.category.label,
+    detail: `${formatNumber(Math.abs(c.diffSqft))} sq ft ${dir} (${formatNumber(Math.abs(c.diffPercent), 2)}%) than a standard ${c.category.label} plot`,
+    match: c.isMatch,
+  };
+}
+
+const closest = result ? closestText(result) : { label: '—', detail: '', match: false };
+
+const presets = [
+  { label: '25 × 45', w: 25, d: 45 },
+  { label: '30 × 60', w: 30, d: 60 },
+  { label: '35 × 65', w: 35, d: 65 },
+  { label: '50 × 90', w: 50, d: 90 },
+];
+
+// Initial preview rectangle proportions
+const maxSide = Math.max(initialWidth, initialDepth) || 1;
+const previewW = `${(initialWidth / maxSide) * 100}%`;
+const previewH = `${(initialDepth / maxSide) * 100}%`;
+
+const outputs: { key: string; label: string; value: string; big?: boolean }[] = [
+  { key: 'sqft', label: 'Total area', value: result ? `${formatNumber(result.sqft)} sq ft` : '—', big: true },
+  { key: 'marla', label: 'Exact Marla', value: result ? `${formatNumber(result.marla)} Marla` : '—', big: true },
+  { key: 'sqyd', label: 'Square yards (gaz)', value: result ? `${formatNumber(result.sqyd)} sq yd` : '—' },
+  { key: 'sqm', label: 'Square meters', value: result ? `${formatNumber(result.sqm)} sq m` : '—' },
+  { key: 'kanal', label: 'Kanal', value: result ? `${formatNumber(result.kanal)} Kanal` : '—' },
+  { key: 'kms', label: 'Kanal – Marla – Sarsai', value: result ? kmsText(result) : '—' },
+];
+---
+
+<section
+  class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+  aria-labelledby={`${id}-title`}
+  data-plot-calculator
+  data-standard={initialStandard}
+>
+  <div class="mb-5">
+    <HeadingTag id={`${id}-title`} class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{heading}</HeadingTag>
+    <p class="mt-1 text-sm text-slate-600">Enter frontage and depth in feet. Use decimals for inches (6 in = 0.5 ft).</p>
+  </div>
+
+  <StandardSelector name={`${id}-standard`} selected={initialStandard} />
+
+  <div class="mt-5 grid grid-cols-2 gap-3 sm:gap-4">
+    <div>
+      <label for={`${id}-width`} class="mb-1.5 block text-sm font-semibold text-slate-800">Frontage (width)</label>
+      <div class="relative">
+        <input
+          id={`${id}-width`}
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          enterkeyhint="next"
+          data-dim="width"
+          value={String(initialWidth)}
+          placeholder="25"
+          class="num h-14 w-full rounded-xl border-2 border-slate-300 bg-white pr-10 pl-4 text-xl font-semibold text-slate-900 placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-700 focus:outline-none aria-[invalid=true]:border-red-600"
+        />
+        <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-slate-500">ft</span>
+      </div>
+    </div>
+    <div>
+      <label for={`${id}-depth`} class="mb-1.5 block text-sm font-semibold text-slate-800">Depth (length)</label>
+      <div class="relative">
+        <input
+          id={`${id}-depth`}
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          enterkeyhint="done"
+          data-dim="depth"
+          value={String(initialDepth)}
+          placeholder="45"
+          class="num h-14 w-full rounded-xl border-2 border-slate-300 bg-white pr-10 pl-4 text-xl font-semibold text-slate-900 placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-700 focus:outline-none aria-[invalid=true]:border-red-600"
+        />
+        <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-semibold text-slate-500">ft</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 flex flex-wrap gap-2" role="group" aria-label="Common plot dimensions">
+    {
+      presets.map((p) => (
+        <button
+          type="button"
+          class="num min-h-11 rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition-colors hover:border-brand-600 hover:bg-brand-50 hover:text-brand-800"
+          data-preset-w={p.w}
+          data-preset-d={p.d}
+        >
+          {p.label} ft
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="mt-6 grid gap-5 md:grid-cols-[minmax(0,1fr)_200px]">
+    <div aria-live="polite" aria-atomic="false">
+      <!-- Closest standard category -->
+      <div
+        class="rounded-xl px-4 py-4 text-white data-[match=false]:bg-slate-800 data-[match=true]:bg-brand-700 sm:px-5"
+        data-closest-box
+        data-match={closest.match ? 'true' : 'false'}
+      >
+        <p class="text-sm font-medium opacity-90">
+          Closest standard plot <span class="num" data-closest-std>({std.label}/Marla)</span>
+        </p>
+        <p class="num mt-1 text-3xl font-extrabold tracking-tight" data-out="closest">{closest.label}</p>
+        <p class="num mt-1 text-sm opacity-90" data-out="closest-detail">{closest.detail}</p>
+      </div>
+
+      <dl class="mt-4 grid grid-cols-2 gap-3">
+        {
+          outputs.map((o) => (
+            <div class:list={['rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 sm:px-4', o.key === 'kms' && 'col-span-2']}>
+              <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">{o.label}</dt>
+              <dd class:list={['num mt-0.5 font-bold text-slate-900', o.big ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg']} data-out={o.key}>
+                {o.value}
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+
+    <!-- Scaled plot preview -->
+    <figure class="flex flex-col items-center">
+      <div class="flex h-48 w-48 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-4" aria-hidden="true">
+        <div class="relative flex h-full w-full items-center justify-center">
+          <div
+            class="relative rounded-sm border-2 border-brand-700 bg-brand-100/70"
+            style={`width:${previewW};height:${previewH}`}
+            data-preview
+          >
+            <span class="num absolute -bottom-0.5 left-1/2 -translate-x-1/2 translate-y-full pt-0.5 text-[11px] font-bold whitespace-nowrap text-slate-700" data-preview-w>{formatNumber(initialWidth)} ft</span>
+            <span class="num absolute top-1/2 -right-0.5 translate-x-full -translate-y-1/2 pl-1 text-[11px] font-bold whitespace-nowrap text-slate-700" data-preview-d>{formatNumber(initialDepth)} ft</span>
+          </div>
+        </div>
+      </div>
+      <figcaption class="mt-2 text-center text-xs text-slate-600">Plot shape to scale. Frontage faces the road (bottom edge).</figcaption>
+    </figure>
+  </div>
+
+  <div class="mt-6">
+    <h3 class="text-lg font-bold text-slate-900">Same plot in each Marla standard</h3>
+    <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Standard</th>
+            <th scope="col" class="text-right">Marla</th>
+            <th scope="col" class="text-right">Kanal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            STANDARDS.map((s) => (
+              <tr data-row={s.id} data-active={s.id === initialStandard ? '' : undefined} class="group">
+                <th scope="row" class="group-data-active:bg-brand-50">
+                  <span class="num">{s.label}</span> <span class="text-xs font-medium text-slate-600">· {s.name}</span>
+                </th>
+                <td class="text-right group-data-active:bg-brand-50 group-data-active:font-semibold" data-std-marla={s.id}>
+                  {result ? formatNumber(fromSqFt(result.sqft, 'marla', s.id)) : '—'}
+                </td>
+                <td class="text-right group-data-active:bg-brand-50 group-data-active:font-semibold" data-std-kanal={s.id}>
+                  {result ? formatNumber(fromSqFt(result.sqft, 'kanal', s.id)) : '—'}
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+  import {
+    calculatePlot,
+    formatNumber,
+    fromSqFt,
+    getStandard,
+    isStandardId,
+    parseInput,
+    type PlotResult,
+    type StandardId,
+  } from '../lib/units';
+
+  function kmsText(r: PlotResult): string {
+    const { kanal, marla, sarsai, sqft } = r.kms;
+    const parts = [`${kanal} Kanal`, `${marla} Marla`, `${sarsai} Sarsai`];
+    if (sqft > 0) parts.push(`${formatNumber(sqft)} sq ft`);
+    return parts.join(' · ');
+  }
+
+  function setInvalid(el: HTMLInputElement, invalid: boolean) {
+    if (invalid) el.setAttribute('aria-invalid', 'true');
+    else el.removeAttribute('aria-invalid');
+  }
+
+  function setupPlot(root: HTMLElement) {
+    const widthEl = root.querySelector<HTMLInputElement>('input[data-dim="width"]');
+    const depthEl = root.querySelector<HTMLInputElement>('input[data-dim="depth"]');
+    if (!widthEl || !depthEl) return;
+    const radios = Array.from(root.querySelectorAll<HTMLInputElement>('input[data-standard]'));
+    const standardNote = root.querySelector<HTMLElement>('[data-standard-note]');
+    const out = (key: string) => root.querySelector<HTMLElement>(`[data-out="${key}"]`);
+    const closestBox = root.querySelector<HTMLElement>('[data-closest-box]');
+    const closestStd = root.querySelector<HTMLElement>('[data-closest-std]');
+    const preview = root.querySelector<HTMLElement>('[data-preview]');
+    const previewW = root.querySelector<HTMLElement>('[data-preview-w]');
+    const previewD = root.querySelector<HTMLElement>('[data-preview-d]');
+    const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-row]'));
+
+    let standard: StandardId = isStandardId(root.dataset.standard) ? root.dataset.standard : '225';
+
+    function setText(key: string, text: string) {
+      const el = out(key);
+      if (el) el.textContent = text;
+    }
+
+    function render() {
+      const std = getStandard(standard);
+      radios.forEach((r) => (r.checked = r.value === standard));
+      if (standardNote) standardNote.textContent = std.usedBy;
+      if (closestStd) closestStd.textContent = `(${std.label}/Marla)`;
+      rows.forEach((r) => r.toggleAttribute('data-active', r.dataset.row === standard));
+
+      const wRaw = widthEl!.value;
+      const dRaw = depthEl!.value;
+      const w = parseInput(wRaw);
+      const d = parseInput(dRaw);
+      setInvalid(widthEl!, wRaw.trim() !== '' && w === null);
+      setInvalid(depthEl!, dRaw.trim() !== '' && d === null);
+
+      const result = w !== null && d !== null ? calculatePlot(w, d, standard) : null;
+
+      if (!result || w === null || d === null) {
+        ['sqft', 'marla', 'sqyd', 'sqm', 'kanal', 'kms', 'closest'].forEach((k) => setText(k, '—'));
+        setText('closest-detail', 'Enter frontage and depth to see the plot category.');
+        closestBox?.setAttribute('data-match', 'false');
+        root.querySelectorAll<HTMLElement>('[data-std-marla],[data-std-kanal]').forEach((c) => (c.textContent = '—'));
+        if (preview) {
+          preview.style.width = '100%';
+          preview.style.height = '100%';
+        }
+        if (previewW) previewW.textContent = '';
+        if (previewD) previewD.textContent = '';
+        return;
+      }
+
+      setText('sqft', `${formatNumber(result.sqft)} sq ft`);
+      setText('marla', `${formatNumber(result.marla)} Marla`);
+      setText('sqyd', `${formatNumber(result.sqyd)} sq yd`);
+      setText('sqm', `${formatNumber(result.sqm)} sq m`);
+      setText('kanal', `${formatNumber(result.kanal)} Kanal`);
+      setText('kms', kmsText(result));
+
+      const c = result.closest;
+      if (c) {
+        setText('closest', c.category.label);
+        if (c.diffSqft === 0) {
+          setText('closest-detail', 'Exact standard size');
+        } else {
+          const dir = c.diffSqft > 0 ? 'larger' : 'smaller';
+          setText(
+            'closest-detail',
+            `${formatNumber(Math.abs(c.diffSqft))} sq ft ${dir} (${formatNumber(Math.abs(c.diffPercent), 2)}%) than a standard ${c.category.label} plot`,
+          );
+        }
+        closestBox?.setAttribute('data-match', c.isMatch ? 'true' : 'false');
+      }
+
+      root.querySelectorAll<HTMLElement>('[data-std-marla]').forEach((cell) => {
+        const s = cell.dataset.stdMarla;
+        if (isStandardId(s)) cell.textContent = formatNumber(fromSqFt(result.sqft, 'marla', s));
+      });
+      root.querySelectorAll<HTMLElement>('[data-std-kanal]').forEach((cell) => {
+        const s = cell.dataset.stdKanal;
+        if (isStandardId(s)) cell.textContent = formatNumber(fromSqFt(result.sqft, 'kanal', s));
+      });
+
+      if (preview) {
+        const max = Math.max(w, d);
+        // Keep very thin plots visible
+        preview.style.width = `${Math.max((w / max) * 100, 6)}%`;
+        preview.style.height = `${Math.max((d / max) * 100, 6)}%`;
+      }
+      if (previewW) previewW.textContent = `${formatNumber(w)} ft`;
+      if (previewD) previewD.textContent = `${formatNumber(d)} ft`;
+    }
+
+    widthEl.addEventListener('input', render);
+    depthEl.addEventListener('input', render);
+    radios.forEach((r) =>
+      r.addEventListener('change', () => {
+        if (r.checked && isStandardId(r.value)) {
+          standard = r.value;
+          render();
+        }
+      }),
+    );
+    root.querySelectorAll<HTMLButtonElement>('[data-preset-w]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        widthEl.value = btn.dataset.presetW ?? '';
+        depthEl.value = btn.dataset.presetD ?? '';
+        render();
+      }),
+    );
+
+    render();
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-plot-calculator]').forEach(setupPlot);
+</script>

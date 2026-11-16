@@ -1,0 +1,114 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { SITE } from '../config/site';
+const site = Astro.site ?? new URL(SITE.url);
+const domain = site.hostname;
+---
+
+<BaseLayout
+  title="Privacy Policy"
+  description={`How ${SITE.name} handles your data, cookies and third-party advertising, including Google AdSense.`}
+>
+  <div class="mx-auto max-w-3xl">
+    <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Privacy Policy' }]} />
+    <article class="prose-content rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+      <h1 class="mb-2 text-3xl font-extrabold tracking-tight text-slate-900">Privacy Policy</h1>
+      <p class="text-sm text-slate-500">Last updated: {SITE.lastUpdated}</p>
+
+      <p>
+        This Privacy Policy explains how {SITE.name}, operated by {SITE.owner} ({SITE.city}) ("we", "us", "our"), collects,
+        uses and protects information when you visit {domain} (the "Site"). By using the Site you agree to this policy.
+        Contact: <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
+      </p>
+
+      <h2>1. Information you enter into the calculators</h2>
+      <p>
+        All calculations happen locally in your web browser. The values you type into the land area converter or plot calculator
+        are <strong>not</strong> sent to us or stored on our servers. If you use the "Copy Results" button, the text is copied
+        to your own device's clipboard only. Your current inputs may appear in the page address (URL) so you can bookmark or
+        share a result; this URL stays on your device unless you share it.
+      </p>
+
+      <h2>2. Information collected automatically</h2>
+      <p>
+        Our hosting and content delivery provider (Cloudflare) processes standard technical data needed to deliver and secure
+        the Site, such as IP address, browser type, requested page, referring page and time of request. This data is used for
+        security, abuse prevention and aggregate traffic statistics, and is handled under Cloudflare's own privacy policy.
+      </p>
+      <p>
+        We do not use Google Analytics or any other third-party analytics service, and we do not set tracking cookies of our
+        own.
+      </p>
+
+      <h2>3. Cookies and advertising</h2>
+      <p>
+        The Site may display advertisements served by Google AdSense. When advertising is active, the following applies:
+      </p>
+      <ul>
+        <li>
+          Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to this website or other
+          websites.
+        </li>
+        <li>
+          Google's use of advertising cookies enables it and its partners to serve ads to users based on their visit to this Site
+          and/or other sites on the Internet.
+        </li>
+        <li>
+          You may opt out of personalised advertising by visiting
+          <a href="https://adssettings.google.com" rel="noopener nofollow" target="_blank">Google Ads Settings</a>. You can also
+          opt out of some third-party vendors' use of cookies for personalised advertising at
+          <a href="https://www.aboutads.info/choices/" rel="noopener nofollow" target="_blank">www.aboutads.info</a>.
+        </li>
+        <li>
+          For more information, see
+          <a href="https://policies.google.com/technologies/partner-sites" rel="noopener nofollow" target="_blank"
+            >How Google uses information from sites or apps that use its services</a
+          >.
+        </li>
+      </ul>
+      <p>
+        Where required by law (for example for visitors in the European Economic Area, the United Kingdom or Switzerland), we
+        will ask for your consent through a certified consent management platform before personalised ads or non-essential
+        cookies are used. You can block or delete cookies in your browser settings at any time; the calculators will continue
+        to work.
+      </p>
+
+      <h2>4. Contact messages</h2>
+      <p>
+        If you email us, we receive your email address and the contents of your message. We use this only to reply to you and
+        keep it no longer than necessary for that purpose. We do not sell or rent personal information.
+      </p>
+
+      <h2>5. Children's privacy</h2>
+      <p>
+        The Site is intended for a general audience and is not directed to children under 13. We do not knowingly collect
+        personal information from children.
+      </p>
+
+      <h2>6. Your rights</h2>
+      <p>
+        Depending on where you live, you may have the right to access, correct or delete personal information we hold about you,
+        or to object to its processing. To make a request, contact us using the details below.
+      </p>
+
+      <h2>7. External links</h2>
+      <p>
+        The Site may link to other websites. We are not responsible for the privacy practices of those sites and encourage you
+        to read their policies.
+      </p>
+
+      <h2>8. Changes to this policy</h2>
+      <p>
+        We may update this policy from time to time. Changes take effect when posted on this page with a new "Last updated"
+        date.
+      </p>
+
+      <h2>9. Contact</h2>
+      <p>
+        Questions about this policy can be sent to <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> or through
+        our <a href="/contact/">contact page</a>.
+      </p>
+    </article>
+  </div>
+</BaseLayout>

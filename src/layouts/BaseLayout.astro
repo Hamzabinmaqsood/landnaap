@@ -1,0 +1,115 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import AdSlot from '../components/AdSlot.astro';
+import { ADSENSE, SITE, adsEnabled } from '../config/site';
+import { serializeJsonLd } from '../lib/schema';
+
+interface Props {
+  title: string;
+  description: string;
+  /** JSON-LD objects injected into <head> */
+  schema?: Record<string, unknown>[];
+  /** Show the right-hand sidebar (tool pages). Holds a 250px ad slot once AdSense is configured. */
+  sidebar?: boolean;
+  noindex?: boolean;
+  ogType?: 'website' | 'article';
+}
+
+const { title, description, schema = [], sidebar = false, noindex = false, ogType = 'website' } = Astro.props;
+
+const site = Astro.site ?? new URL(SITE.url);
+const canonical = new URL(Astro.url.pathname, site).href;
+const ogImage = new URL('/og-image.png', site).href;
+const fullTitle = title.includes(SITE.name) ? title : `${title} | ${SITE.name}`;
+
+// AdSense loader is only emitted once a publisher ID is set in src/config/site.ts
+const adsenseSrc = adsEnabled()
+  ? `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE.client}`
+  : null;
+---
+
+<!doctype html>
+<html lang={SITE.lang} dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="robots" content={noindex ? 'noindex, follow' : 'index, follow, max-snippet:-1, max-image-preview:large'} />
+    <meta name="theme-color" content={SITE.themeColor} />
+    <meta name="color-scheme" content="light" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="text/markdown" href="/llms.txt" title="LLM-readable site summary" />
+
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content={SITE.locale} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {schema.map((s) => <script type="application/ld+json" set:html={serializeJsonLd(s)} />)}
+
+    {
+      adsenseSrc ? (
+        <script is:inline async src={adsenseSrc} crossorigin="anonymous" />
+      ) : (
+        <Fragment set:html="<!-- Google AdSense loader: added automatically once ADSENSE.client is set in src/config/site.ts -->" />
+      )
+    }
+    <slot name="head" />
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <a
+      href="#main"
+      class="sr-only z-50 rounded-md bg-brand-700 px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >Skip to content</a
+    >
+    <Header />
+
+    {
+      adsEnabled('header-banner') ? (
+        <div class="mx-auto w-full max-w-6xl px-4 pt-4">
+          <AdSlot variant="banner" name="header-banner" />
+        </div>
+      ) : (
+        <AdSlot variant="banner" name="header-banner" />
+      )
+    }
+
+    <div
+      class:list={[
+        'mx-auto w-full max-w-6xl flex-1 px-4 pt-6',
+        sidebar && 'lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8',
+      ]}
+    >
+      <main id="main" class="min-w-0">
+        <slot />
+      </main>
+      {
+        sidebar && (
+          <aside class="mt-10 lg:mt-0" aria-label="Sidebar">
+            <div class="space-y-6 lg:sticky lg:top-4">
+              <AdSlot variant="rectangle" name="sidebar-rectangle" />
+              <slot name="sidebar" />
+            </div>
+          </aside>
+        )
+      }
+    </div>
+
+    <Footer />
+  </body>
+</html>

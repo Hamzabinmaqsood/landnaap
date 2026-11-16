@@ -1,0 +1,84 @@
+---
+/**
+ * Static (build-time) HTML reference table for crawlers and no-JS visitors.
+ * Rows = values in the `from` unit, columns = `to` unit under each Marla standard.
+ * If the result is identical in every standard (e.g. Kanal -> Marla), it shows one
+ * result column plus the square-foot size in each standard instead.
+ */
+import { STANDARDS, UNITS, convert, formatNumber, toSqFt, type UnitId } from '../lib/units';
+
+interface Props {
+  from: UnitId;
+  to: UnitId;
+  values: number[];
+  highlight?: number;
+  caption?: string;
+}
+
+const { from, to, values, highlight, caption } = Astro.props;
+
+const sameAcross = values.every((v) => {
+  const results = STANDARDS.map((s) => convert(v, from, to, s.id));
+  return results.every((r) => r === results[0]);
+});
+---
+
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="data-table">
+    <caption class="px-3 py-3 text-left text-sm font-medium text-slate-600">
+      {caption ?? `${UNITS[from].label} to ${UNITS[to].label} conversion table`}
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">{UNITS[from].label}</th>
+        {
+          sameAcross ? (
+            <>
+              <th scope="col" class="text-right">
+                {UNITS[to].label}
+                <span class="block text-xs font-medium text-slate-600">all standards</span>
+              </th>
+              {STANDARDS.map((s) => (
+                <th scope="col" class="text-right">
+                  sq ft <span class="num block text-xs font-medium text-slate-600">@ {s.label}</span>
+                </th>
+              ))}
+            </>
+          ) : (
+            STANDARDS.map((s) => (
+              <th scope="col" class="text-right">
+                {UNITS[to].label}
+                <span class="num block text-xs font-medium text-slate-600">
+                  @ {s.label} ({s.name})
+                </span>
+              </th>
+            ))
+          )
+        }
+      </tr>
+    </thead>
+    <tbody>
+      {
+        values.map((v) => (
+          <tr class:list={[v === highlight && 'font-semibold']}>
+            <th scope="row" class:list={[v === highlight && 'bg-brand-50']}>
+              {formatNumber(v)} {UNITS[from].short}
+            </th>
+            {sameAcross ? (
+              <>
+                <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(convert(v, from, to, '225'))}</td>
+                {STANDARDS.map((s) => (
+                  <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(toSqFt(v, from, s.id))}</td>
+                ))}
+              </>
+            ) : (
+              STANDARDS.map((s) => (
+                <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(convert(v, from, to, s.id))}</td>
+              ))
+            )}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

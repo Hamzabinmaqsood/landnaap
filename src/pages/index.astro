@@ -1,0 +1,109 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LandConverter from '../components/LandConverter.astro';
+import AdSlot from '../components/AdSlot.astro';
+import Faq from '../components/Faq.astro';
+import FormulaList from '../components/FormulaList.astro';
+import SidebarLinks from '../components/SidebarLinks.astro';
+import ReferenceTable from '../components/ReferenceTable.astro';
+import { SITE } from '../config/site';
+import { CONVERSIONS } from '../data/conversions';
+import { HOME_EXTRA_FAQS, STANDARD_FAQS } from '../data/faqs';
+import { faqPageSchema, softwareApplicationSchema, websiteSchema } from '../lib/schema';
+
+const title = 'Marla to Sq Ft, Kanal & Acre Calculator (225 / 272.25)';
+const description =
+  'Convert Marla, Kanal, sq ft, square yards (gaz), sq meters, acres and Sarsai instantly. Switch between 225, 250 and 272.25 sq ft Marla standards. Free & private.';
+
+const faqs = [...STANDARD_FAQS, ...HOME_EXTRA_FAQS];
+const site = Astro.site ?? new URL(SITE.url);
+const url = new URL('/', site).href;
+
+const schema = [
+  websiteSchema(url),
+  softwareApplicationSchema({
+    name: `${SITE.name} Land Area Converter`,
+    url,
+    description,
+    extraFeatures: [
+      'Live bidirectional conversion between Marla, Kanal, Square Feet, Square Yards, Square Meters, Acres and Sarsai',
+      'Three Marla standards: 225 sq ft (housing societies), 272.25 sq ft (revenue / Patwari), 250 sq ft (custom developer schemes)',
+      'Side-by-side comparison of the same area across all Marla standards',
+    ],
+  }),
+  faqPageSchema(faqs),
+];
+---
+
+<BaseLayout title={title} description={description} schema={schema} sidebar>
+  <div class="mb-6">
+    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Marla, Kanal & Square Feet Converter</h1>
+    <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+      Instantly convert land area between Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai.
+      Choose the <strong>225 sq ft</strong> society Marla, the <strong>272.25 sq ft</strong> revenue Marla or a
+      <strong>250 sq ft</strong> developer Marla.
+    </p>
+  </div>
+
+  <LandConverter id="home-converter" initialValue={5} initialUnit="marla" initialStandard="225" />
+
+  <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
+
+  <section class="prose-content mt-4" aria-labelledby="standards-heading">
+    <h2 id="standards-heading">Which Marla is the right one?</h2>
+    <p>
+      Pakistan uses more than one definition of a Marla, and mixing them up is one of the most common mistakes when comparing
+      plot prices. A plot advertised as "5 Marla" in a housing society is 1,125 sq ft, while 5 Marla in revenue records is
+      1,361.25 sq ft.
+    </p>
+    <ul>
+      <li>
+        <strong>225 sq ft (25 sq yd):</strong> DHA, Bahria Town, LDA-approved schemes and most private housing societies.
+      </li>
+      <li>
+        <strong>272.25 sq ft (30.25 sq yd):</strong> the revenue or Patwari standard, used in the fard, registry, intiqal and for
+        agricultural land. 9 Sarsai = 1 Marla, 20 Marla = 1 Kanal, 8 Kanal = 1 acre.
+      </li>
+      <li>
+        <strong>250 sq ft:</strong> used by some private developers. Always confirm the definition in your booking documents.
+      </li>
+    </ul>
+    <p>
+      Need the area of a plot from its dimensions instead? Use the <a href="/plot-size-calculator/">plot size calculator</a> to
+      turn frontage and depth into square feet, Marla and the nearest standard plot size.
+    </p>
+  </section>
+
+  <section class="mt-10" aria-labelledby="marla-table-heading">
+    <h2 id="marla-table-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+      Marla to square feet table
+    </h2>
+    <ReferenceTable from="marla" to="sqft" values={[1, 2, 3, 4, 5, 7, 8, 10, 12, 15, 20]} />
+  </section>
+
+  <section class="mt-10" aria-labelledby="popular-heading">
+    <h2 id="popular-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Popular conversions</h2>
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {
+        CONVERSIONS.map((c) => (
+          <li>
+            <a
+              href={`/convert/${c.slug}/`}
+              class="flex min-h-14 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 transition-colors hover:border-brand-600 hover:bg-brand-50"
+            >
+              <span>{c.h1}</span>
+              <span aria-hidden="true" class="text-brand-700">
+                →
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <FormulaList />
+  <Faq items={faqs} />
+
+  <SidebarLinks slot="sidebar" />
+</BaseLayout>

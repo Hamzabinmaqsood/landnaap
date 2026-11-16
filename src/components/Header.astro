@@ -1,0 +1,42 @@
+---
+import { NAV_LINKS, SITE } from '../config/site';
+
+const current = Astro.url.pathname;
+const isActive = (href: string) => (href === '/' ? current === '/' : current.startsWith(href));
+---
+
+<header class="border-b border-slate-200 bg-white">
+  <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+    <a href="/" class="flex items-center gap-2.5 self-start rounded-md sm:self-auto" aria-label={`${SITE.name} home`}>
+      <svg class="h-9 w-9 shrink-0" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#047857"></rect>
+        <path d="M7 23V9h8v6h10v8z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"></path>
+        <path d="M15 15v8" stroke="#a7f3d0" stroke-width="2.2"></path>
+      </svg>
+      <span class="leading-tight">
+        <span class="block text-lg font-extrabold tracking-tight text-slate-900">{SITE.name}</span>
+        <span class="block text-xs font-medium text-slate-600">Marla · Kanal · Plot Calculator</span>
+      </span>
+    </a>
+    <nav aria-label="Main" class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <ul class="flex gap-1 whitespace-nowrap">
+        {
+          NAV_LINKS.map((l) => (
+            <li>
+              <a
+                href={l.href}
+                class:list={[
+                  'inline-flex min-h-11 items-center rounded-lg px-3 text-[15px] font-semibold transition-colors',
+                  isActive(l.href) ? 'bg-brand-50 text-brand-800' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900',
+                ]}
+                aria-current={isActive(l.href) ? 'page' : undefined}
+              >
+                {l.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</header>

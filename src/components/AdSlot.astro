@@ -1,0 +1,45 @@
+---
+/**
+ * Google AdSense placement.
+ *
+ * Until a publisher ID and a slot ID for this placement are set in src/config/site.ts
+ * (ADSENSE), this renders ONLY an HTML comment marking the position. No box, border,
+ * background, label or reserved space appears on screen.
+ *
+ * Once configured it renders an invisible (no border, no background) wrapper with a fixed
+ * min-height, so the ad fills space that is already reserved: zero Cumulative Layout Shift.
+ *   variant="banner"    -> min-h-[90px]
+ *   variant="rectangle" -> min-h-[250px]
+ */
+import { ADSENSE, adsEnabled, type AdPlacement } from '../config/site';
+
+interface Props {
+  variant: 'banner' | 'rectangle';
+  name: AdPlacement;
+  class?: string;
+}
+
+const { variant, name, class: className = '' } = Astro.props;
+const enabled = adsEnabled(name);
+const sizeClass = variant === 'banner' ? 'min-h-[90px]' : 'min-h-[250px]';
+const minHeight = variant === 'banner' ? '90px' : '250px';
+const placeholderComment = `<!-- AdSense placement "${name}" (${variant}, ${minHeight} reserved when active): set ADSENSE.client and ADSENSE.slots["${name}"] in src/config/site.ts to show an ad here -->`;
+---
+
+{
+  enabled ? (
+    <div class:list={['w-full overflow-hidden', sizeClass, className]} data-ad-placement={name}>
+      <ins
+        class="adsbygoogle"
+        style={`display:block;min-height:${minHeight}`}
+        data-ad-client={ADSENSE.client}
+        data-ad-slot={ADSENSE.slots[name]}
+        data-ad-format={variant === 'banner' ? 'horizontal' : 'rectangle'}
+        data-full-width-responsive="true"
+      />
+      <script is:inline>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+  ) : (
+    <Fragment set:html={placeholderComment} />
+  )
+}

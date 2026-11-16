@@ -1,0 +1,93 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { SITE } from '../config/site';
+
+const inputClass =
+  'w-full rounded-xl border-2 border-slate-300 bg-white px-4 text-base text-slate-900 placeholder:text-slate-400 hover:border-slate-400 focus:border-brand-700 focus:outline-none';
+---
+
+<BaseLayout title="Contact Us" description={`Contact ${SITE.name} to report an error, suggest a conversion or ask about advertising.`}>
+  <div class="mx-auto max-w-3xl">
+    <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Contact' }]} />
+    <article class="rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Contact Us</h1>
+      <p class="mt-3 leading-7 text-slate-700">
+        Spotted a wrong figure, want another conversion page, or have a business enquiry? Email us at
+        <a href={`mailto:${SITE.contactEmail}`} class="font-semibold text-brand-700 underline">{SITE.contactEmail}</a>
+        or use the form below.
+      </p>
+
+      <dl class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-xl bg-slate-50 p-4">
+          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Email</dt>
+          <dd class="mt-1 font-semibold break-all text-slate-900">{SITE.contactEmail}</dd>
+        </div>
+        <div class="rounded-xl bg-slate-50 p-4">
+          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Operated by</dt>
+          <dd class="mt-1 font-semibold text-slate-900">{SITE.owner}</dd>
+        </div>
+        <div class="rounded-xl bg-slate-50 p-4">
+          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Location</dt>
+          <dd class="mt-1 font-semibold text-slate-900">{SITE.city}</dd>
+        </div>
+      </dl>
+
+      <form class="mt-8 space-y-5" data-contact-form data-email={SITE.contactEmail} novalidate>
+        <div>
+          <label for="c-name" class="mb-1.5 block text-sm font-semibold text-slate-800">Your name</label>
+          <input id="c-name" name="name" type="text" autocomplete="name" required class:list={[inputClass, 'h-12']} />
+        </div>
+        <div>
+          <label for="c-topic" class="mb-1.5 block text-sm font-semibold text-slate-800">Topic</label>
+          <select id="c-topic" name="topic" class:list={[inputClass, 'h-12']}>
+            <option>Report a calculation error</option>
+            <option>Suggest a new conversion</option>
+            <option>Advertising / business enquiry</option>
+            <option>Privacy request</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="c-message" class="mb-1.5 block text-sm font-semibold text-slate-800">Message</label>
+          <textarea id="c-message" name="message" rows="6" required class:list={[inputClass, 'py-3']}></textarea>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            class="inline-flex min-h-12 items-center rounded-xl bg-brand-700 px-6 text-[15px] font-semibold text-white hover:bg-brand-800"
+          >
+            Open in email app
+          </button>
+          <p class="text-sm text-slate-600" role="status" aria-live="polite" data-contact-status>
+            Opens your email app with the message ready to send. Nothing is stored on this website.
+          </p>
+        </div>
+      </form>
+    </article>
+  </div>
+</BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-contact-form]');
+  if (form) {
+    const status = form.querySelector<HTMLElement>('[data-contact-status]');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const name = String(data.get('name') ?? '').trim();
+      const topic = String(data.get('topic') ?? '').trim();
+      const message = String(data.get('message') ?? '').trim();
+      if (!name || !message) {
+        if (status) status.textContent = 'Please enter your name and a message.';
+        (form.querySelector<HTMLInputElement>(name ? '#c-message' : '#c-name'))?.focus();
+        return;
+      }
+      const email = form.dataset.email ?? '';
+      const subject = encodeURIComponent(`[${topic}] from ${name}`);
+      const body = encodeURIComponent(`${message}\n\n— ${name}\nSent from ${window.location.origin}`);
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+      if (status) status.textContent = 'Your email app should open now. If not, email us directly at the address above.';
+    });
+  }
+</script>

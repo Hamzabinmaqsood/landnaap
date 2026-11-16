@@ -1,0 +1,5 @@
+# Optional: only needed for direct uploads with `npx wrangler pages deploy`.
+# Git-connected Cloudflare Pages projects can ignore this file.
+name = "landnaap"
+compatibility_date = "2026-11-01"
+pages_build_output_dir = "./dist"

@@ -1,0 +1,36 @@
+---
+import { STANDARDS, type StandardId } from '../lib/units';
+
+interface Props {
+  /** Unique radio group name per calculator instance */
+  name: string;
+  selected: StandardId;
+  legend?: string;
+}
+const { name, selected, legend = 'Marla standard' } = Astro.props;
+---
+
+<fieldset>
+  <legend class="mb-2 text-sm font-semibold text-slate-800">{legend}</legend>
+  <div class="grid grid-cols-3 gap-2">
+    {
+      STANDARDS.map((s) => (
+        <label class="relative flex min-h-[4.25rem] cursor-pointer flex-col justify-center rounded-xl border-2 border-slate-200 bg-white px-1 py-2 text-center transition-colors hover:border-brand-300 has-checked:border-brand-700 has-checked:bg-brand-50 has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand-600 sm:px-3">
+          <input
+            type="radio"
+            class="sr-only"
+            name={name}
+            value={s.id}
+            data-standard={s.id}
+            checked={s.id === selected}
+          />
+          <span class="num text-[13px] font-bold tracking-tight whitespace-nowrap text-slate-900 min-[400px]:text-[15px] sm:text-base">{s.label}</span>
+          <span class="mt-0.5 text-[11px] leading-tight font-medium text-slate-600 sm:text-xs">{s.name}</span>
+        </label>
+      ))
+    }
+  </div>
+  <p class="mt-2 text-xs leading-5 text-slate-600" data-standard-note>
+    {STANDARDS.find((s) => s.id === selected)?.usedBy}
+  </p>
+</fieldset>

@@ -1,0 +1,67 @@
+# LandNaap: Marla, Kanal & Plot Size Calculator (Pakistan)
+
+> Free, client-side land area calculators for Pakistan and South Asia. Converts Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai using three Marla standards (225, 250 and 272.25 sq ft), and calculates plot area and standard plot size from frontage × depth.
+
+All calculations run in the browser. Every tool page also contains static HTML reference tables and FAQPage / SoftwareApplication JSON-LD with the same formulas.
+
+Base URL: https://landnaap.app
+
+## Marla standards
+
+| Standard | 1 Marla | 1 Kanal (20 Marla) | 1 Sarsai (1/9 Marla) | Used by |
+|---|---|---|---|---|
+| Housing Society | 225 sq ft (25 sq yd) | 4,500 sq ft | 25 sq ft | DHA, Bahria Town, LDA, most housing societies |
+| Revenue / Patwari | 272.25 sq ft (30.25 sq yd) | 5,445 sq ft | 30.25 sq ft (1 square karam, 5.5 ft × 5.5 ft) | Revenue records (fard, jamabandi, registry, intiqal), agricultural land |
+| Custom Developer | 250 sq ft (27.78 sq yd) | 5,000 sq ft | 27.78 sq ft | Some private developer schemes |
+
+The word "Marla" is ambiguous: always state which standard is used. On the revenue standard, 1 Acre = 8 Kanal = 160 Marla.
+
+## Exact formulas
+
+- Square Feet = Marla × S, where S = 225, 250 or 272.25
+- Marla = Square Feet ÷ S
+- Kanal = Marla ÷ 20 (identical in every standard)
+- Sarsai = Marla × 9
+- Square Yards (Gaz) = Square Feet ÷ 9
+- Square Meters = Square Feet × 0.09290304
+- Acres = Square Feet ÷ 43,560
+- Plot Area (sq ft) = Frontage (ft) × Depth (ft); Marla = Plot Area ÷ S
+- Closest standard plot = nearest of 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16 Marla or 1, 1.5, 2, 3, 4, 8 Kanal; within ±2.5% counts as a match
+
+## Key values
+
+| Area | 225 sq ft Marla | 250 sq ft Marla | 272.25 sq ft Marla |
+|---|---|---|---|
+| 3 Marla | 675 sq ft | 750 sq ft | 816.75 sq ft |
+| 5 Marla | 1,125 sq ft (125 sq yd) | 1,250 sq ft (138.89 sq yd) | 1,361.25 sq ft (151.25 sq yd) |
+| 7 Marla | 1,575 sq ft | 1,750 sq ft | 1,905.75 sq ft |
+| 10 Marla | 2,250 sq ft | 2,500 sq ft | 2,722.5 sq ft |
+| 1 Kanal | 4,500 sq ft (20 Marla) | 5,000 sq ft (20 Marla) | 5,445 sq ft (20 Marla) |
+| 1 Acre (43,560 sq ft) | 9.68 Kanal / 193.6 Marla | 8.712 Kanal / 174.24 Marla | 8 Kanal / 160 Marla |
+
+Common society plot dimensions (225 sq ft Marla): 25 × 45 ft = 5 Marla; 30 × 60 ft = 8 Marla; 35 × 65 ft = 2,275 sq ft ≈ 10.11 Marla (sold as 10 Marla); 50 × 90 ft = 1 Kanal.
+
+## Tools
+
+- [Land Area Converter](https://landnaap.app/): live bidirectional conversion between Marla, Kanal, sq ft, sq yd, sq m, acres and Sarsai, with a side-by-side comparison of all three Marla standards. Shareable URLs: `/?v=5&u=marla&s=225` (u = marla | kanal | sqft | sqyd | sqm | acre | sarsai; s = 225 | 250 | 272.25).
+- [Plot Size Calculator](https://landnaap.app/plot-size-calculator/): frontage × depth in feet → sq ft, sq yd, sq m, exact Marla, Kanal, Kanal–Marla–Sarsai breakdown and closest standard plot category.
+
+## Conversion pages
+
+- [3 Marla to Sq Ft](https://landnaap.app/convert/3-marla-to-sq-ft/)
+- [5 Marla to Sq Ft](https://landnaap.app/convert/5-marla-to-sq-ft/)
+- [7 Marla to Sq Ft](https://landnaap.app/convert/7-marla-to-sq-ft/)
+- [10 Marla to Sq Ft](https://landnaap.app/convert/10-marla-to-sq-ft/)
+- [1 Kanal to Sq Ft](https://landnaap.app/convert/1-kanal-to-sq-ft/)
+- [1 Kanal to Marla](https://landnaap.app/convert/1-kanal-to-marla/)
+- [5 Marla to Square Yards](https://landnaap.app/convert/5-marla-to-sq-yards/)
+- [1 Acre to Kanal](https://landnaap.app/convert/1-acre-to-kanal/)
+- [All conversions](https://landnaap.app/convert/)
+
+## Optional
+
+- [About](https://landnaap.app/about/)
+- [Privacy Policy](https://landnaap.app/privacy-policy/)
+- [Terms of Use](https://landnaap.app/terms/)
+- [Contact](https://landnaap.app/contact/)
+- [Sitemap](https://landnaap.app/sitemap-index.xml)

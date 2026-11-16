@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import { SITE } from '../config/site';
+---
+
+<BaseLayout
+  title={`About ${SITE.name}`}
+  description={`${SITE.name} builds free, fast and private land area calculators for Pakistan, covering Marla, Kanal, square feet, square yards and acres.`}
+>
+  <div class="mx-auto max-w-3xl">
+    <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'About' }]} />
+    <article class="prose-content rounded-2xl border border-slate-200 bg-white p-5 sm:p-8">
+      <h1 class="mb-4 text-3xl font-extrabold tracking-tight text-slate-900">About {SITE.name}</h1>
+      <p>
+        {SITE.name} ("naap" means measurement in Urdu) is a free set of land measurement tools for buyers, sellers, agents,
+        overseas Pakistanis and anyone dealing with property in Pakistan and South Asia.
+      </p>
+      <p>
+        {SITE.name} is an independent project operated by <strong>{SITE.owner}</strong> from {SITE.city}. It is not affiliated
+        with any housing society, development authority or government department.
+      </p>
+
+      <h2>Why we built it</h2>
+      <p>
+        Land in Pakistan is measured in several overlapping systems. Housing societies use a 225 sq ft Marla, revenue records use
+        a 272.25 sq ft Marla, some developers use 250 sq ft, and Karachi sells plots in square yards. The same "5 Marla" can mean
+        a difference of more than 230 square feet. We wanted a calculator that makes the standard explicit and shows every
+        version side by side.
+      </p>
+
+      <h2>What you can do here</h2>
+      <ul>
+        <li>Convert between Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai.</li>
+        <li>Switch between the 225, 250 and 272.25 sq ft Marla standards and compare all three at once.</li>
+        <li>Calculate plot area from frontage and depth and find the nearest standard plot size.</li>
+        <li>Use ready-made reference pages for the most searched conversions.</li>
+      </ul>
+
+      <h2>How the calculators work</h2>
+      <p>
+        Every calculation runs in your browser using exact definitions: 1 Kanal = 20 Marla, 1 Sarsai = 1/9 Marla, 1 square yard
+        = 9 sq ft, 1 sq ft = 0.09290304 sq m and 1 acre = 43,560 sq ft. Nothing you enter is sent to a server. The site is a
+        static website served from a global content delivery network, so it loads quickly even on slow mobile connections.
+      </p>
+
+      <h2>Accuracy and limitations</h2>
+      <p>
+        We test the formulas against known values, but local practice varies between schemes and districts. Results are for
+        guidance only and are not a legal survey. Before buying, selling or registering land, confirm the area with your housing
+        society, the revenue department or a licensed surveyor.
+      </p>
+
+      <h2>Advertising</h2>
+      <p>
+        {SITE.name} is free to use and may be supported by advertising, including Google AdSense. Advertising never changes
+        calculation results. See our <a href="/privacy-policy/">Privacy Policy</a> for details on cookies.
+      </p>
+
+      <h2>Get in touch</h2>
+      <p>
+        Found an error or want a new conversion added? Email <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> or use the <a href="/contact/">contact page</a>.
+      </p>
+    </article>
+  </div>
+</BaseLayout>

@@ -1,0 +1,46 @@
+---
+/** Static table: one input value expressed in every unit under every Marla standard. */
+import { STANDARDS, UNITS, UNIT_ORDER, compareStandards, formatNumber, type UnitId } from '../lib/units';
+
+interface Props {
+  value: number;
+  unit: UnitId;
+}
+const { value, unit } = Astro.props;
+const data = compareStandards(value, unit);
+---
+
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <table class="data-table">
+    <caption class="px-3 py-3 text-left text-sm font-medium text-slate-600">
+      {formatNumber(value)} {UNITS[unit].label} in every unit and Marla standard
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Unit</th>
+        {
+          STANDARDS.map((s) => (
+            <th scope="col" class="text-right">
+              <span class="num block">{s.label}</span>
+              <span class="block text-xs font-medium text-slate-600">{s.name}</span>
+            </th>
+          ))
+        }
+      </tr>
+    </thead>
+    <tbody>
+      {
+        UNIT_ORDER.map((u) => (
+          <tr>
+            <th scope="row">
+              {UNITS[u].label}
+            </th>
+            {STANDARDS.map((s) => (
+              <td class="text-right">{formatNumber(data[s.id][u])}</td>
+            ))}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

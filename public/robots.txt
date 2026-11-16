@@ -1,0 +1,26 @@
+# robots.txt for LandNaap
+
+User-agent: *
+Allow: /
+Disallow: /404
+
+# AI / LLM crawlers are welcome. Site summary for LLMs: /llms.txt
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://landnaap.app/sitemap-index.xml
