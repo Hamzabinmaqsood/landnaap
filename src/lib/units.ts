@@ -279,6 +279,29 @@ export function parseInput(raw: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** Full unit label with correct singular/plural, e.g. "1 Acre" vs "2 Acres". */
+export function unitLabel(unit: UnitId, n: number): string {
+  if (n !== 1) return UNITS[unit].label;
+  switch (unit) {
+    case 'acre':
+      return 'Acre';
+    case 'sqft':
+      return 'Square Foot';
+    case 'sqyd':
+      return 'Square Yard (Gaz)';
+    case 'sqm':
+      return 'Square Meter';
+    default:
+      return UNITS[unit].label;
+  }
+}
+
+/** Short unit with correct plural for acres, e.g. "0.5 Acres", "1 Acre". */
+export function unitShort(unit: UnitId, n: number): string {
+  if (unit === 'acre') return n === 1 ? 'Acre' : 'Acres';
+  return UNITS[unit].short;
+}
+
 /** "5 Marla", "1 Kanal", "1,125 sq ft" */
 export function formatWithUnit(n: number, unit: UnitId): string {
   return `${formatNumber(n)} ${UNITS[unit].short}`;

@@ -4,7 +4,9 @@ A static, zero-backend Astro + Tailwind CSS site for Pakistani / South Asian lan
 
 - **Land Area Converter**: live, bidirectional Marla ⇄ Kanal ⇄ sq ft ⇄ sq yd (gaz) ⇄ sq m ⇄ acre ⇄ Sarsai, with 225 / 272.25 / 250 sq ft Marla standards, a three-standard comparison table, Copy Results and shareable URLs (`/?v=5&u=marla&s=225`).
 - **Plot Dimension & Cutting Calculator**: frontage × depth gives sq ft, sq yd, sq m, exact Marla, Kanal, a Kanal–Marla–Sarsai breakdown and the closest standard plot size.
-- **Programmatic SEO**: 8 pre-rendered `/convert/[slug]/` pages, each with a unique title, description and canonical URL, a static reference table, an FAQ, and `SoftwareApplication` + `FAQPage` + `BreadcrumbList` JSON-LD.
+- **Programmatic SEO**: 57 pre-rendered `/convert/[slug]/` pages in 6 groups, each with a unique context paragraph, a generated title, description and canonical URL, a worked calculation for every standard, a static reference table, links to adjacent sizes, an FAQ, and `SoftwareApplication` + `FAQPage` + `BreadcrumbList` JSON-LD.
+- **Guides**: `/guides/` plus 6 long-form references (600–900 words each) with `Article` + `FAQPage` JSON-LD, an automatic table of contents and reading time.
+- **71 indexable pages** in the sitemap (plus the 404 page).
 - **AI search (GEO)**: `public/llms.txt`, AI-crawler-friendly `robots.txt`, formulas in JSON-LD and visible HTML.
 - **AdSense-ready**: placements render nothing until configured, then use fixed `min-h-[90px]` / `min-h-[250px]` wrappers (zero CLS). Includes About, Privacy Policy, Terms and Contact pages.
 
@@ -14,7 +16,8 @@ A static, zero-backend Astro + Tailwind CSS site for Pakistani / South Asian lan
 # Requires Node.js 22.23.4+ (see .nvmrc)
 npm install
 npm run dev        # http://localhost:4321
-npm test           # unit tests for the conversion engine
+npm test           # conversion engine + page/link/llms.txt integrity tests
+npm run llms       # regenerate public/llms.txt from the site data
 npm run build      # astro check + static build to ./dist
 npm run preview    # serve ./dist locally
 ```
@@ -62,7 +65,13 @@ Ads are **off by default**: no AdSense script loads and no ad containers render,
 
 ## Adding a conversion page
 
-Add an entry to `CONVERSIONS` in `src/data/conversions.ts`. The route, quick answer, pre-filled calculator, reference table, FAQ, JSON-LD, sitemap entry and internal links are all generated from it. Add the URL to `public/llms.txt` as well.
+Add a spec to `SPECS` in `src/data/conversions.ts` with a `value`, `from`, `to`, `category` and a unique `context` paragraph. The slug (`{value}-{from}-to-{to}`, with `3.5` becoming `3-5`), title, description, H1, answers, worked calculation, reference table, related links, FAQ, JSON-LD and sitemap entry are generated automatically. Then run `npm run llms` and `npm test`. The tests fail if a page is missing from `llms.txt`, has no inbound link, or duplicates another page's title, description or context.
+
+## Adding a guide
+
+1. Add its metadata and FAQs to `GUIDES` in `src/data/guides.ts`.
+2. Create `src/pages/guides/<slug>.astro` that wraps the body in `<GuideLayout guide={getGuide('<slug>')}>`. Give every `<h2>` an `id` so it appears in the table of contents.
+3. Run `npm run llms` and `npm test`.
 
 ## Project structure
 
@@ -76,15 +85,16 @@ Add an entry to `CONVERSIONS` in `src/data/conversions.ts`. The route, quick ans
 │   ├── og-image.png
 │   └── robots.txt
 ├── src/
-│   ├── components/           # calculators, tables, ad slots, layout parts
+│   ├── components/           # calculators, tables, link grids, ad slots, layout parts
 │   ├── config/site.ts        # brand, contact, nav
-│   ├── data/                 # conversion pages + FAQ content
-│   ├── layouts/BaseLayout.astro
+│   ├── data/                 # conversions.ts (57 specs), guides.ts, faqs.ts
+│   ├── layouts/              # BaseLayout.astro, GuideLayout.astro
 │   ├── lib/units.ts          # conversion engine (shared by build + browser)
 │   ├── lib/schema.ts         # JSON-LD builders
-│   ├── pages/                # routes (incl. convert/[slug].astro)
+│   ├── pages/                # routes: convert/[slug].astro, guides/*.astro, legal pages
 │   └── styles/global.css
-└── tests/units.test.ts
+├── scripts/generate-llms.ts  # builds public/llms.txt from the data
+└── tests/                    # units.test.ts, pages.test.ts
 ```
 
 ## Conversion constants

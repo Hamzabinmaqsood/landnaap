@@ -1,0 +1,99 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('dha-bahria-town-lda-plot-dimensions');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="standard-cuts">Typical dimensions by plot size</h2>
+  <p>
+    Large housing societies in Punjab plan their blocks around a few standard plot categories, each with a usual frontage
+    (width facing the road) and depth. All of them use the 225 sq ft Marla. The table shows the dimensions most commonly
+    used in DHA Lahore and Bahria Town Lahore, and the exact Marla each one produces.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Category</th>
+          <th scope="col">Typical dimensions</th>
+          <th scope="col" class="text-right">Area</th>
+          <th scope="col" class="text-right">Exact Marla (225)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">5 Marla</th><td>25 × 45 ft</td><td class="text-right">1,125 sq ft</td><td class="text-right">5.00</td></tr>
+        <tr><th scope="row">8 Marla</th><td>30 × 60 ft</td><td class="text-right">1,800 sq ft</td><td class="text-right">8.00</td></tr>
+        <tr><th scope="row">10 Marla</th><td>35 × 65 ft (or 35 × 64 ft)</td><td class="text-right">2,275 sq ft</td><td class="text-right">10.11</td></tr>
+        <tr><th scope="row">1 Kanal</th><td>50 × 90 ft</td><td class="text-right">4,500 sq ft</td><td class="text-right">20.00</td></tr>
+        <tr><th scope="row">2 Kanal</th><td>75 × 120 ft or 100 × 90 ft</td><td class="text-right">9,000 sq ft</td><td class="text-right">40.00</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    These are typical cuts, not guarantees. Dimensions vary between phases, blocks and schemes, and the plot map attached to
+    your allotment is the only figure that counts for your plot.
+  </p>
+
+  <h2 id="ten-marla">Why 10 Marla is 35 × 65 and not exactly 2,250 sq ft</h2>
+  <p>
+    Exactly 10 Marla on the society standard is 2,250 sq ft. Planners also want a frontage that suits a family house and
+    whole-foot dimensions that are easy to stake out on site. Exact options exist: 30 × 75 ft is too narrow for its depth,
+    and 45 × 50 ft is too shallow for a front lawn and a rear yard.
+  </p>
+  <p>
+    35 × 65 ft gives a comfortable proportion at 2,275 sq ft, about 10.11 Marla. Some phases use 35 × 64 ft (2,240 sq ft,
+    9.96 Marla) instead. In both cases the plot is sold under the 10 Marla category, and the 25 sq ft difference is
+    absorbed in the layout. The category is a label; the allotted area is on the plot map.
+  </p>
+
+  <h2 id="two-kanal">Two Kanal and larger</h2>
+  <p>
+    Two Kanal is the largest standard residential category in many DHA Lahore phases. Older phases tend to use deep plots of
+    75 × 120 ft; others use wider 100 × 90 ft plots. Both are 9,000 sq ft. Some phases also have 4 Kanal residential plots.
+    Wider frontage costs more per foot of road, which is one reason layouts differ between phases.
+  </p>
+
+  <h2 id="other-sizes">7, 12 Marla and commercial plots</h2>
+  <p>
+    Categories such as 7 Marla and 12 Marla exist in some phases and schemes, but their cuts vary much more than the core
+    sizes. A 7 Marla plot is often around 30 ft wide, and a 12 Marla plot is usually wider than a 10 Marla. Always measure
+    rather than assume.
+  </p>
+  <p>
+    Commercial plots follow their own categories. In DHA Lahore, 2, 4 and 8 Marla and 1 Kanal commercial plots are common.
+    Their dimensions depend on the market or boulevard they front, and they come with separate rules on height and use.
+  </p>
+
+  <h2 id="lda-schemes">LDA-approved private schemes</h2>
+  <p>
+    The Lahore Development Authority approves the layout plans of private housing schemes in its area. Approved schemes
+    generally use the 225 sq ft Marla, and many reuse the familiar 25 × 45 ft cut for 5 Marla. Each scheme's approved layout
+    plan is the authority on plot sizes, so check it rather than relying on a brochure. LDA also publishes information on
+    which schemes are approved, which is worth checking before you pay for a file.
+  </p>
+
+  <h2 id="corner-plots">Corner, park-facing and "extra land" plots</h2>
+  <p>
+    Corner plots are often not a clean rectangle. The corner may be cut back (chamfered) for road visibility, which reduces
+    the area, or the plot may include extra land along the side road, which increases it. Societies usually charge a premium
+    for corners and park-facing locations, and any extra land is often billed separately per Marla.
+  </p>
+  <p>
+    For an irregular corner plot, frontage × depth will not give the right area. Use the triangulation method in our guide on
+    <a href="/guides/how-to-measure-irregular-plot-area/">measuring irregular plots</a>.
+  </p>
+
+  <h2 id="before-buying">What to check before you buy</h2>
+  <ol>
+    <li>Get the plot map or possession letter and note the stated dimensions and area in square feet.</li>
+    <li>Measure frontage and depth on site, from boundary pillar to boundary pillar, keeping the tape straight and level.</li>
+    <li>
+      Enter both into the <a href="/plot-size-calculator/">plot size calculator</a> and compare the exact Marla with the
+      category you are paying for.
+    </li>
+    <li>For corners, record both side lengths and a diagonal, and check how any extra land is priced.</li>
+    <li>Read the society's building bylaws for your category before designing, because setbacks differ by plot size.</li>
+  </ol>
+</GuideLayout>

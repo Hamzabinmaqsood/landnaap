@@ -8,11 +8,23 @@ import Faq from '../../components/Faq.astro';
 import ReferenceTable from '../../components/ReferenceTable.astro';
 import BreakdownTable from '../../components/BreakdownTable.astro';
 import SidebarLinks from '../../components/SidebarLinks.astro';
+import LinkGrid from '../../components/LinkGrid.astro';
 import { SITE } from '../../config/site';
-import { CONVERSIONS, conversionFaqs, formulaText, type ConversionPage } from '../../data/conversions';
+import {
+  ANSWER_ORDER,
+  CATEGORIES,
+  CONVERSIONS,
+  conversionFaqs,
+  formulaText,
+  relatedConversions,
+  shortName,
+  workedSteps,
+  type ConversionPage,
+} from '../../data/conversions';
 import { STANDARD_FAQS } from '../../data/faqs';
+import { guidesForCategory } from '../../data/guides';
 import { breadcrumbSchema, faqPageSchema, softwareApplicationSchema } from '../../lib/schema';
-import { STANDARDS, UNITS, convert, formatNumber, getStandard } from '../../lib/units';
+import { UNITS, formatNumber, getStandard, unitLabel } from '../../lib/units';
 
 export const getStaticPaths = (() => {
   return CONVERSIONS.map((c) => ({ params: { slug: c.slug }, props: { conversion: c } }));
@@ -29,12 +41,14 @@ const url = new URL(`/convert/${c.slug}/`, site).href;
 const fromU = UNITS[c.from];
 const toU = UNITS[c.to];
 const defaultStd = getStandard(c.defaultStandard);
-const primary = convert(c.value, c.from, c.to, c.defaultStandard);
-const answers = STANDARDS.map((s) => ({ std: s, result: convert(c.value, c.from, c.to, s.id) }));
-const allSame = answers.every((a) => a.result === answers[0].result);
+const primary = c.results[c.defaultStandard];
+const answers = ANSWER_ORDER.map((id) => ({ std: getStandard(id), result: c.results[id] }));
+const steps = workedSteps(c);
+const category = CATEGORIES.find((x) => x.id === c.category);
 
 const faqs = [...conversionFaqs(c), ...STANDARD_FAQS];
-const related = CONVERSIONS.filter((x) => x.slug !== c.slug);
+const related = relatedConversions(c, 8);
+const guides = guidesForCategory(c.category);
 
 const schema = [
   softwareApplicationSchema({
@@ -42,8 +56,8 @@ const schema = [
     url,
     description: c.description,
     extraFeatures: [
-      `${formatNumber(c.value)} ${fromU.short} = ${answers
-        .map((a) => `${formatNumber(a.result)} ${toU.short} (${a.std.label} standard)`)
+      `${formatNumber(c.value)} ${shortName(c.from, c.value)} = ${answers
+        .map((a) => `${formatNumber(a.result)} ${shortName(c.to, a.result)} (${a.std.label} standard)`)
         .join('; ')}`,
       formulaText(c.from, c.to),
     ],
@@ -61,26 +75,26 @@ const schema = [
   <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Conversions', href: '/convert/' }, { name: c.h1 }]} />
 
   <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{c.h1}</h1>
-  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{c.intro}</p>
+  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{c.context}</p>
 
   <!-- Quick answer (static, crawlable) -->
   <section class="mt-6 rounded-2xl border-2 border-brand-700 bg-brand-50 p-4 sm:p-5" aria-labelledby="answer-heading">
     <h2 id="answer-heading" class="text-sm font-bold tracking-wide text-brand-800 uppercase">Quick answer</h2>
     <p class="num mt-1 text-2xl font-extrabold text-slate-900 sm:text-3xl">
       {formatNumber(c.value)}
-      {fromU.short} = {formatNumber(primary)}
-      {toU.short}
+      {shortName(c.from, c.value)} = {formatNumber(primary)}
+      {shortName(c.to, primary)}
     </p>
     <p class="mt-1 text-sm text-slate-700">
-      {allSame ? 'Same in every Marla standard.' : `On the ${defaultStd.label} (${defaultStd.name}) standard.`}
+      {c.sameAcross ? 'Same in every Marla standard.' : `On the ${defaultStd.label} (${defaultStd.name}) standard.`}
     </p>
     {
-      !allSame && (
+      !c.sameAcross && (
         <ul class="mt-4 grid gap-2 sm:grid-cols-3">
           {answers.map((a) => (
-            <li class="rounded-xl border border-brand-200 bg-white px-3 py-2.5">
+            <li class:list={['rounded-xl border bg-white px-3 py-2.5', a.std.id === c.defaultStandard ? 'border-brand-700' : 'border-brand-200']}>
               <span class="num block text-lg font-bold text-slate-900">
-                {formatNumber(a.result)} {toU.short}
+                {formatNumber(a.result)} {shortName(c.to, a.result)}
               </span>
               <span class="num block text-xs font-medium text-slate-600">
                 {a.std.label} · {a.std.name}
@@ -107,10 +121,34 @@ const schema = [
   <section class="prose-content mt-4" aria-labelledby="how-heading">
     <h2 id="how-heading">How to convert {fromU.label} to {toU.label}</h2>
     <p><strong>Formula:</strong> {formulaText(c.from, c.to)}</p>
-    {c.notes.map((n) => <p>{n}</p>)}
+    <h3>Worked calculation</h3>
+    <ul>
+      {
+        steps.map((s) => (
+          <li class="num">
+            {s.standard ? <strong>{getStandard(s.standard).label}: </strong> : <strong>All standards: </strong>}
+            {s.text}
+          </li>
+        ))
+      }
+    </ul>
   </section>
 
-  <section class="mt-8" aria-labelledby="table-heading">
+  <section class="mt-8" aria-labelledby="related-heading">
+    <h2 id="related-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Nearby sizes & related conversions</h2>
+    <LinkGrid links={related.map((r) => ({ href: `/convert/${r.slug}/`, label: r.h1 }))} />
+    {
+      category && (
+        <p class="mt-3 text-sm text-slate-600">
+          Browse all <a href="/convert/" class="font-semibold text-brand-700 underline">{category.title}</a> and other
+          conversions, or use the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a> if
+          you have dimensions.
+        </p>
+      )
+    }
+  </section>
+
+  <section class="mt-10" aria-labelledby="table-heading">
     <h2 id="table-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
       {fromU.label} to {toU.label} reference table
     </h2>
@@ -120,37 +158,27 @@ const schema = [
   <section class="mt-10" aria-labelledby="breakdown-heading">
     <h2 id="breakdown-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
       {formatNumber(c.value)}
-      {fromU.label} in all units
+      {unitLabel(c.from, c.value)} in all units
     </h2>
     <BreakdownTable value={c.value} unit={c.from} />
   </section>
 
   <Faq items={faqs} heading={`${c.h1}: FAQ`} />
 
-  <section class="mt-12" aria-labelledby="related-heading">
-    <h2 id="related-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Related conversions</h2>
-    <ul class="grid gap-3 sm:grid-cols-2">
-      {
-        related.map((r) => (
-          <li>
-            <a
-              href={`/convert/${r.slug}/`}
-              class="flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-semibold text-slate-900 hover:border-brand-600 hover:bg-brand-50"
-            >
-              {r.h1}
-              <span aria-hidden="true" class="text-brand-700">
-                →
-              </span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
-    <p class="mt-4 text-sm text-slate-600">
-      Have plot dimensions instead? Try the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>.
-      Results by {SITE.name} are for guidance; confirm with official records.
-    </p>
-  </section>
+  {
+    guides.length > 0 && (
+      <section class="mt-12" aria-labelledby="guides-heading">
+        <h2 id="guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+          Related guides
+        </h2>
+        <LinkGrid links={guides.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
+      </section>
+    )
+  }
 
-  <SidebarLinks slot="sidebar" exclude={c.slug} />
+  <p class="mt-8 text-sm text-slate-600">
+    Results by {SITE.name} are for guidance. Confirm areas with your society, the revenue department or a licensed surveyor.
+  </p>
+
+  <SidebarLinks slot="sidebar" links={related.slice(0, 6)} heading="Nearby conversions" />
 </BaseLayout>

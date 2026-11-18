@@ -1,6 +1,7 @@
 ---
 import { FOOTER_LINKS, SITE } from '../config/site';
-import { CONVERSIONS } from '../data/conversions';
+import { POPULAR_CONVERSIONS } from '../data/conversions';
+import { GUIDES } from '../data/guides';
 
 const year = new Date().getFullYear();
 ---
@@ -22,7 +23,7 @@ const year = new Date().getFullYear();
       <p class="text-sm font-bold text-slate-900">Popular conversions</p>
       <ul class="mt-3 space-y-1.5 text-sm">
         {
-          CONVERSIONS.map((c) => (
+          POPULAR_CONVERSIONS.map((c) => (
             <li>
               <a href={`/convert/${c.slug}/`} class="text-slate-600 hover:text-brand-700 hover:underline">
                 {c.linkLabel}
@@ -30,6 +31,7 @@ const year = new Date().getFullYear();
             </li>
           ))
         }
+        <li><a href="/convert/" class="font-semibold text-brand-700 hover:underline">All conversions →</a></li>
       </ul>
     </nav>
     <nav aria-label="Site information">
@@ -37,6 +39,7 @@ const year = new Date().getFullYear();
       <ul class="mt-3 space-y-1.5 text-sm">
         <li><a href="/" class="text-slate-600 hover:text-brand-700 hover:underline">Land Area Converter</a></li>
         <li><a href="/plot-size-calculator/" class="text-slate-600 hover:text-brand-700 hover:underline">Plot Size Calculator</a></li>
+        <li><a href="/guides/" class="text-slate-600 hover:text-brand-700 hover:underline">Guides ({GUIDES.length})</a></li>
         {
           FOOTER_LINKS.map((l) => (
             <li>

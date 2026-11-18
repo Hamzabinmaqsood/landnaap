@@ -1,0 +1,119 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('covered-area-vs-plot-area-construction');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="why-it-matters">Plot size is not house size</h2>
+  <p>
+    A 10 Marla plot does not give you 10 Marla of house. Building bylaws require open space around the building, limit how
+    much of the plot the ground floor may cover, and cap the total floor area across all storeys. Construction contractors,
+    meanwhile, price their work on <strong>covered area</strong>, not plot area. Understanding the difference is the first
+    step in any realistic budget.
+  </p>
+
+  <h2 id="definitions">The five terms you need</h2>
+  <ul>
+    <li>
+      <strong>Plot area:</strong> the land you own, from boundary to boundary. For a 35 × 65 ft plot, 2,275 sq ft.
+    </li>
+    <li>
+      <strong>Setbacks:</strong> mandatory open strips at the front, rear and sometimes the sides, where you may not build
+      (apart from permitted items such as boundary walls).
+    </li>
+    <li>
+      <strong>Ground coverage:</strong> the footprint of the building on the ground floor, often expressed as a percentage of
+      plot area.
+    </li>
+    <li>
+      <strong>Covered area:</strong> the total built-up floor area of all floors, measured to the outside of external walls.
+      Basements, stair towers (mumty) and porches may or may not count, depending on the bylaws.
+    </li>
+    <li>
+      <strong>FAR (Floor Area Ratio):</strong> total covered area divided by plot area. A FAR of 1.5 on a 2,000 sq ft plot
+      allows up to 3,000 sq ft of covered area, if height and setback rules also permit it.
+    </li>
+  </ul>
+
+  <h2 id="example">Worked example: a 10 Marla house</h2>
+  <p>
+    Take a 35 × 65 ft society plot (2,275 sq ft). The figures below are <em>illustrative assumptions</em> to show the
+    method. Your own society or development authority sets the actual values by plot size.
+  </p>
+  <ol>
+    <li>
+      <strong>Apply setbacks.</strong> Assume a 10 ft front setback and a 5 ft rear setback, with no side setbacks. The
+      buildable depth is 65 − 10 − 5 = 50 ft, so the maximum footprint is 35 × 50 = <strong>1,750 sq ft</strong>.
+    </li>
+    <li>
+      <strong>Ground floor.</strong> Building the full footprint gives 1,750 sq ft of covered area. Ground coverage is
+      1,750 ÷ 2,275 = 77% of the plot.
+    </li>
+    <li>
+      <strong>First floor.</strong> Some societies cap the first floor at a percentage of the ground floor on larger plots.
+      Assuming a 75% cap: 1,750 × 0.75 = <strong>1,312.5 sq ft</strong>.
+    </li>
+    <li>
+      <strong>Total covered area:</strong> 1,750 + 1,312.5 = <strong>3,062.5 sq ft</strong>, before any stair tower or
+      basement.
+    </li>
+    <li><strong>Resulting FAR:</strong> 3,062.5 ÷ 2,275 = about 1.35.</li>
+  </ol>
+  <p>
+    So a "10 Marla house" in this scenario has roughly 3,060 sq ft of covered area, a third more than the plot itself, while
+    the ground-floor footprint is about three quarters of it.
+  </p>
+
+  <h2 id="estimates">Turning covered area into a construction estimate</h2>
+  <p>
+    Contractors usually quote a rate per square foot of covered area, either for the grey structure alone or for the
+    complete house including finishing. The basic estimate is simple:
+  </p>
+  <p><strong>Construction cost = covered area × rate per sq ft</strong></p>
+  <p>Using 3,062.5 sq ft with a quoted rate R, the estimate is 3,062.5 × R. A few things refine it:</p>
+  <ul>
+    <li>
+      <strong>Separate grey structure and finishing.</strong> Finishing quality varies far more than structure, so quote and
+      compare them separately.
+    </li>
+    <li>
+      <strong>Price items outside covered area separately.</strong> Boundary walls, gates, external paving, the porch roof
+      and an underground water tank are often outside the per-foot rate.
+    </li>
+    <li>
+      <strong>Check what is counted.</strong> Agree in writing whether the stair tower, basement and balconies are included
+      in the covered area the contractor bills.
+    </li>
+    <li>
+      <strong>Usable area is smaller.</strong> Covered area includes wall thickness, so room-by-room (carpet) area is
+      noticeably less. Use it when planning furniture, not when budgeting construction.
+    </li>
+  </ul>
+  <p>
+    Construction rates move with steel, cement and labour prices, so get current written quotes rather than relying on any
+    published average.
+  </p>
+
+  <h2 id="metric">Converting for drawings and engineers</h2>
+  <p>
+    Architects and structural engineers often work in metric. Multiply square feet by 0.09290304 to get square meters: the
+    2,275 sq ft plot is 211.35 sq m, and the 3,062.5 sq ft covered area is 284.52 sq m. The
+    <a href="/convert/10-marla-to-sq-meters/">10 Marla to square meters</a> page has the exact figures for each Marla
+    standard.
+  </p>
+
+  <h2 id="checklist">Checklist before you finalise a design</h2>
+  <ol>
+    <li>Get the current building and zoning bylaws for your exact plot category from the society or authority.</li>
+    <li>Note front, rear and side setbacks, the ground coverage limit, the maximum number of storeys and the height cap.</li>
+    <li>Check the rules on basements, stair towers, car porches, projections and parking.</li>
+    <li>Ask your architect for a covered-area schedule floor by floor, and check it against the FAR limit.</li>
+    <li>Submit drawings for approval before construction starts. Building without an approved plan risks fines or demolition.</li>
+  </ol>
+  <p>
+    Start with the right plot area. If you are unsure of yours, measure frontage and depth and use the
+    <a href="/plot-size-calculator/">plot size calculator</a>.
+  </p>
+</GuideLayout>

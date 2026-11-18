@@ -1,0 +1,114 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('how-to-measure-irregular-plot-area');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="problem">Why frontage × depth is not enough</h2>
+  <p>
+    Frontage × depth is exact only for a rectangle. Many plots are not rectangles: corner plots with a cut corner, plots on
+    curved roads, inherited agricultural parcels and older town plots often have four unequal sides and angles that are not
+    90°.
+  </p>
+  <p>
+    Measuring the four sides alone does not fix the area either. Take a plot with two 30 ft sides and two 60 ft sides. If
+    the corners are square, it is a 30 × 60 ft rectangle of 1,800 sq ft. If it is skewed so that one diagonal measures 75 ft
+    instead of the rectangle's 67.08 ft, the same four sides enclose only <strong>1,709.85 sq ft</strong>, about 90 sq ft
+    less. The sides did not change; the angles did.
+  </p>
+
+  <h2 id="method">The method: split the plot into triangles</h2>
+  <p>
+    A triangle is the one shape whose area is fixed by its three sides. Any plot with straight boundaries can be divided into
+    triangles by drawing diagonals between corners. A four-sided plot needs one diagonal and becomes two triangles. A
+    five-sided plot needs two diagonals and becomes three triangles, and so on. What you need to measure:
+  </p>
+  <ul>
+    <li>all four sides, corner to corner (boundary pillar to boundary pillar);</li>
+    <li>one diagonal, which splits the plot into two triangles;</li>
+    <li>ideally the second diagonal as well, to check your work.</li>
+  </ul>
+
+  <h2 id="heron">Heron's formula</h2>
+  <p>For a triangle with sides a, b and c:</p>
+  <ol>
+    <li>Find the semi-perimeter: <strong>s = (a + b + c) ÷ 2</strong>.</li>
+    <li>Calculate <strong>Area = √( s × (s − a) × (s − b) × (s − c) )</strong>.</li>
+  </ol>
+  <p>
+    If any bracket comes out zero or negative, the three lengths cannot form a triangle, which almost always means a
+    measurement or recording error.
+  </p>
+
+  <h2 id="example">Worked example</h2>
+  <p>A four-sided plot ABCD was measured as follows:</p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr><th scope="col">Measurement</th><th scope="col" class="text-right">Length</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">AB (front)</th><td class="text-right">32 ft</td></tr>
+        <tr><th scope="row">BC (right side)</th><td class="text-right">61 ft</td></tr>
+        <tr><th scope="row">CD (rear)</th><td class="text-right">28 ft</td></tr>
+        <tr><th scope="row">DA (left side)</th><td class="text-right">58 ft</td></tr>
+        <tr><th scope="row">AC (diagonal)</th><td class="text-right">68 ft</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Triangle ABC</strong> (sides 32, 61, 68):</p>
+  <ul>
+    <li>s = (32 + 61 + 68) ÷ 2 = 80.5</li>
+    <li>Area = √(80.5 × 48.5 × 19.5 × 12.5) = √951,660.9 ≈ 975.53 sq ft</li>
+  </ul>
+  <p><strong>Triangle ACD</strong> (sides 68, 28, 58):</p>
+  <ul>
+    <li>s = (68 + 28 + 58) ÷ 2 = 77</li>
+    <li>Area = √(77 × 9 × 49 × 19) = √645,183 ≈ 803.23 sq ft</li>
+  </ul>
+  <p>
+    <strong>Total plot area</strong> = 975.53 + 803.23 = <strong>1,778.76 sq ft</strong>. That is 7.91 Marla on the 225 sq
+    ft society standard or 6.53 Marla on the 272.25 sq ft revenue standard.
+  </p>
+
+  <h2 id="shortcut">The averaging shortcut, and its limits</h2>
+  <p>
+    A common shortcut multiplies the average width by the average length. Here: ((32 + 28) ÷ 2) × ((61 + 58) ÷ 2) = 30 ×
+    59.5 = 1,785 sq ft. For this nearly rectangular plot the shortcut is only 0.35% high.
+  </p>
+  <p>
+    The shortcut ignores angles, though, and it never underestimates. For the skewed 30 × 60 plot in the first section it
+    gives 1,800 sq ft against a true 1,709.85 sq ft, an overstatement of more than 5%. On a plot sold by the Marla, that
+    difference is real money. Use triangulation whenever the corners are visibly not square.
+  </p>
+
+  <h2 id="check">Check your answer</h2>
+  <ul>
+    <li>
+      <strong>Second diagonal.</strong> Measure BD as well and recompute using triangles ABD and BCD. The two totals should
+      agree closely. In this example BD works out to about 65.1 ft.
+    </li>
+    <li>
+      <strong>Coordinates.</strong> If a surveyor gives you corner coordinates, the shoelace formula gives the area directly
+      and should match your triangle total.
+    </li>
+    <li>
+      <strong>Sense check.</strong> The true area should be a little below the averaging shortcut, never above it.
+    </li>
+  </ul>
+
+  <h2 id="tips">Measuring tips</h2>
+  <ul>
+    <li>Measure between boundary pillars or agreed corner points, not to the face of a wall that may be off the boundary.</li>
+    <li>Keep the tape taut and level. On sloping ground, measure in short horizontal steps.</li>
+    <li>Convert inches to decimal feet before calculating: 6 in = 0.5 ft and 3 in = 0.25 ft.</li>
+    <li>Sketch the plot and label every corner and length as you go, so diagonals are not mixed up.</li>
+    <li>For legal purposes, such as disputes, partition or registration, rely on an official demarcation or a licensed surveyor.</li>
+  </ul>
+  <p>
+    Once you have the total in square feet, convert it with the <a href="/">land area converter</a>, or check a
+    rectangular part of the plot with the <a href="/plot-size-calculator/">plot size calculator</a>.
+  </p>
+</GuideLayout>

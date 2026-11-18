@@ -1,0 +1,122 @@
+---
+/**
+ * Long-form guide layout.
+ * Renders the guide body once at build time to derive the table of contents (from <h2 id>),
+ * the word count and the reading time, then injects Article + FAQPage + BreadcrumbList JSON-LD.
+ */
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import Faq from '../components/Faq.astro';
+import LinkGrid from '../components/LinkGrid.astro';
+import SidebarLinks from '../components/SidebarLinks.astro';
+import AdSlot from '../components/AdSlot.astro';
+import { SITE } from '../config/site';
+import { GUIDES, type Guide } from '../data/guides';
+import { getConversion } from '../data/conversions';
+import { articleSchema, breadcrumbSchema, faqPageSchema } from '../lib/schema';
+
+interface Props {
+  guide: Guide;
+}
+
+const { guide } = Astro.props;
+const site = Astro.site ?? new URL(SITE.url);
+const url = new URL(`/guides/${guide.slug}/`, site).href;
+
+const body = await Astro.slots.render('default');
+const plain = body.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
+const wordCount = plain.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+const minutes = Math.max(1, Math.round(wordCount / 200));
+const toc = [...body.matchAll(/<h2[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => ({
+  id: m[1],
+  text: m[2].replace(/<[^>]+>/g, '').trim(),
+}));
+
+const fmtDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+const related = guide.relatedConversions.map((slug) => {
+  const c = getConversion(slug);
+  if (!c) throw new Error(`Guide ${guide.slug} links to unknown conversion ${slug}`);
+  return c;
+});
+const otherGuides = GUIDES.filter((g) => g.slug !== guide.slug);
+
+const schema = [
+  articleSchema({
+    headline: guide.h1,
+    description: guide.description,
+    url,
+    datePublished: guide.datePublished,
+    dateModified: guide.dateModified,
+    wordCount,
+    siteUrl: site.href,
+  }),
+  faqPageSchema(guide.faqs),
+  breadcrumbSchema([
+    { name: 'Home', url: new URL('/', site).href },
+    { name: 'Guides', url: new URL('/guides/', site).href },
+    { name: guide.navLabel, url },
+  ]),
+];
+---
+
+<BaseLayout title={guide.title} description={guide.description} schema={schema} sidebar ogType="article">
+  <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides/' }, { name: guide.navLabel }]} />
+
+  <article>
+    <header>
+      <h1 class="text-3xl leading-tight font-extrabold tracking-tight text-slate-900 sm:text-4xl">{guide.h1}</h1>
+      <p class="mt-3 text-sm text-slate-600">
+        By <a href="/about/" class="font-semibold text-slate-800 hover:underline">{SITE.owner}</a>
+        · <time datetime={guide.dateModified}>Updated {fmtDate(guide.dateModified)}</time>
+        · {minutes} min read
+      </p>
+      <p class="mt-4 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{guide.description}</p>
+    </header>
+
+    {
+      toc.length > 1 && (
+        <nav aria-label="On this page" class="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <p class="text-sm font-bold text-slate-900">On this page</p>
+          <ol class="mt-2 list-decimal space-y-1 pl-5 text-[15px] text-slate-700 marker:text-slate-400">
+            {toc.map((t) => (
+              <li>
+                <a href={`#${t.id}`} class="hover:text-brand-700 hover:underline">
+                  {t.text}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
+    <div class="prose-content mt-2 max-w-3xl" data-guide-body set:html={body} />
+
+    <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
+
+    <section class="mt-10" aria-labelledby="tools-heading">
+      <h2 id="tools-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Convert it yourself</h2>
+      <LinkGrid links={related.map((c) => ({ href: `/convert/${c.slug}/`, label: c.h1 }))} />
+      <p class="mt-3 text-sm text-slate-600">
+        Or open the <a href="/" class="font-semibold text-brand-700 underline">land area converter</a> and the
+        <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>.
+      </p>
+    </section>
+
+    <Faq items={guide.faqs} heading="Questions about this guide" id="guide-faq" />
+
+    <section class="mt-12" aria-labelledby="more-guides-heading">
+      <h2 id="more-guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">More guides</h2>
+      <LinkGrid links={otherGuides.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
+    </section>
+
+    <p class="mt-8 text-sm text-slate-600">
+      This guide is general information, not legal or engineering advice. Confirm measurements and rules with your society,
+      development authority, the revenue department or a licensed professional.
+    </p>
+  </article>
+
+  <SidebarLinks slot="sidebar" links={related} heading="Conversions in this guide" />
+</BaseLayout>

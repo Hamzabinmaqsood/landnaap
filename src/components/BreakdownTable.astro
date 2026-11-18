@@ -1,6 +1,6 @@
 ---
 /** Static table: one input value expressed in every unit under every Marla standard. */
-import { STANDARDS, UNITS, UNIT_ORDER, compareStandards, formatNumber, type UnitId } from '../lib/units';
+import { STANDARDS, UNITS, UNIT_ORDER, compareStandards, formatNumber, unitLabel, type UnitId } from '../lib/units';
 
 interface Props {
   value: number;
@@ -13,7 +13,7 @@ const data = compareStandards(value, unit);
 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
   <table class="data-table">
     <caption class="px-3 py-3 text-left text-sm font-medium text-slate-600">
-      {formatNumber(value)} {UNITS[unit].label} in every unit and Marla standard
+      {formatNumber(value)} {unitLabel(unit, value)} in every unit and Marla standard
     </caption>
     <thead>
       <tr>

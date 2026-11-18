@@ -1,35 +1,60 @@
 ---
-import { CONVERSIONS } from '../data/conversions';
+import { POPULAR_CONVERSIONS, type ConversionPage } from '../data/conversions';
+import { GUIDES } from '../data/guides';
 
 interface Props {
-  exclude?: string;
+  /** Links to show; defaults to the popular conversions */
+  links?: ConversionPage[];
+  heading?: string;
 }
-const { exclude } = Astro.props;
-const links = CONVERSIONS.filter((c) => c.slug !== exclude);
+const { links = POPULAR_CONVERSIONS, heading = 'Popular conversions' } = Astro.props;
 ---
 
-<nav aria-label="Popular conversions" class="rounded-xl border border-slate-200 bg-white p-4">
-  <p class="mb-2 text-sm font-bold text-slate-900">Popular conversions</p>
-  <ul class="space-y-0.5">
-    {
-      links.map((c) => (
-        <li>
-          <a
-            href={`/convert/${c.slug}/`}
-            class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
-          >
-            {c.linkLabel}
-          </a>
-        </li>
-      ))
-    }
-  </ul>
-  <div class="mt-3 border-t border-slate-100 pt-3">
-    <a
-      href="/plot-size-calculator/"
-      class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50"
-    >
-      Plot size calculator →
-    </a>
-  </div>
-</nav>
+<div class="space-y-6">
+  <nav aria-label={heading} class="rounded-xl border border-slate-200 bg-white p-4">
+    <p class="mb-2 text-sm font-bold text-slate-900">{heading}</p>
+    <ul class="space-y-0.5">
+      {
+        links.map((c) => (
+          <li>
+            <a
+              href={`/convert/${c.slug}/`}
+              class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
+            >
+              {c.linkLabel}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="mt-3 space-y-0.5 border-t border-slate-100 pt-3">
+      <a href="/convert/" class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">
+        All conversions →
+      </a>
+      <a
+        href="/plot-size-calculator/"
+        class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50"
+      >
+        Plot size calculator →
+      </a>
+    </div>
+  </nav>
+
+  <nav aria-label="Guides" class="rounded-xl border border-slate-200 bg-white p-4">
+    <p class="mb-2 text-sm font-bold text-slate-900">Land measurement guides</p>
+    <ul class="space-y-0.5">
+      {
+        GUIDES.map((g) => (
+          <li>
+            <a
+              href={`/guides/${g.slug}/`}
+              class="flex min-h-10 items-center rounded-lg px-2 py-1.5 text-[15px] leading-snug font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
+            >
+              {g.navLabel}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</div>

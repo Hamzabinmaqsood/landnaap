@@ -1,0 +1,128 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+import { formatNumber, fromSqFt } from '../../lib/units';
+
+const guide = getGuide('karachi-sq-yards-gaz-vs-punjab-marla');
+const sizes = [80, 120, 200, 240, 400, 500, 600, 1000, 2000];
+const rows = sizes.map((g) => {
+  const sqft = g * 9;
+  return {
+    g,
+    sqft,
+    m225: fromSqFt(sqft, 'marla', '225'),
+    m272: fromSqFt(sqft, 'marla', '272.25'),
+    k225: fromSqFt(sqft, 'kanal', '225'),
+  };
+});
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="two-systems">Two systems, one country</h2>
+  <p>
+    In Karachi and across urban Sindh, residential plots are measured and sold in <strong>square yards</strong>, usually
+    called gaz or simply "yards". A "120 yard house" means a house on a 120 square yard plot. In Punjab, Islamabad and Khyber
+    Pakhtunkhwa, the same plot would be described in Marla and Kanal. Families relocating between cities, overseas buyers and
+    investors comparing markets constantly need to translate between the two.
+  </p>
+  <p>
+    The bridge is the square foot. One square yard is 3 ft × 3 ft = <strong>9 sq ft</strong>. Convert gaz to square feet,
+    then divide by the Marla size you need.
+  </p>
+
+  <h2 id="shortcuts">The shortcuts worth memorising</h2>
+  <p>Because a society Marla is exactly 25 square yards, most conversions become simple division:</p>
+  <ul>
+    <li><strong>Society Marla</strong> = square yards ÷ 25</li>
+    <li><strong>Society Kanal</strong> = square yards ÷ 500</li>
+    <li><strong>Revenue Marla</strong> = square yards ÷ 30.25</li>
+    <li><strong>Revenue Kanal</strong> = square yards ÷ 605</li>
+  </ul>
+  <p>
+    Going the other way, multiply Marla by 25 (society) or 30.25 (revenue) to get square yards. On the 250 sq ft developer
+    standard a Marla is about 27.78 square yards.
+  </p>
+
+  <h2 id="table">Common Karachi plot sizes in Marla and Kanal</h2>
+  <p>
+    The sizes below are the ones most often seen in Karachi listings, from small 80 and 120 yard plots up to the 500 and
+    1,000 yard bungalow plots associated with DHA Karachi.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Square yards</th>
+          <th scope="col" class="text-right">Square feet</th>
+          <th scope="col" class="text-right">Marla (225)</th>
+          <th scope="col" class="text-right">Marla (272.25)</th>
+          <th scope="col" class="text-right">Kanal (225)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((r) => (
+            <tr>
+              <th scope="row">{formatNumber(r.g)} gaz</th>
+              <td class="text-right">{formatNumber(r.sqft)}</td>
+              <td class="text-right">{formatNumber(r.m225, 2)}</td>
+              <td class="text-right">{formatNumber(r.m272, 2)}</td>
+              <td class="text-right">{formatNumber(r.k225, 2)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="matches">Where the two systems line up</h2>
+  <p>A few sizes match almost perfectly on the society standard, which makes cross-city comparison easy:</p>
+  <ul>
+    <li><strong>500 gaz = 1 Kanal.</strong> A DHA Karachi 500 yard plot has the same area as a 50 × 90 ft Kanal in Lahore.</li>
+    <li><strong>1,000 gaz = 2 Kanal.</strong> The top residential categories in both cities are the same size.</li>
+    <li><strong>200 gaz = 8 Marla.</strong> Both are 1,800 sq ft, for example a 30 × 60 ft plot.</li>
+    <li><strong>120 gaz ≈ 5 Marla.</strong> At 1,080 sq ft, the Karachi plot is 45 sq ft smaller than a 1,125 sq ft society 5 Marla.</li>
+    <li><strong>240 gaz ≈ 10 Marla.</strong> At 2,160 sq ft, it is 90 sq ft short of a 2,250 sq ft society 10 Marla.</li>
+  </ul>
+  <p>
+    On the revenue standard nothing lines up neatly. A revenue Kanal is 605 square yards, so a 500 yard plot is only about
+    0.83 of it.
+  </p>
+
+  <h2 id="example">Worked example: comparing two family homes</h2>
+  <p>
+    A family is choosing between a house on a 240 yard plot in Karachi and a 10 Marla house in a Lahore society.
+  </p>
+  <ol>
+    <li>Karachi plot: 240 × 9 = 2,160 sq ft.</li>
+    <li>Lahore plot: if it is a 35 × 65 ft cut, 2,275 sq ft; at exactly 10 Marla, 2,250 sq ft.</li>
+    <li>Difference: 90 to 115 sq ft in favour of Lahore, about 4–5%.</li>
+  </ol>
+  <p>
+    To compare prices fairly, divide each asking price by its square footage. The result is a price per square foot that is
+    directly comparable regardless of which unit the listing used.
+  </p>
+
+  <h2 id="pitfalls">Pitfalls to watch for</h2>
+  <ul>
+    <li>
+      <strong>"Yards" means square yards.</strong> In Karachi listings, "120 yards" always refers to area, never a length.
+    </li>
+    <li>
+      <strong>Flats are quoted in square feet.</strong> Apartment sizes are usually given as covered area in square feet,
+      which is not comparable with a plot area in yards or Marla.
+    </li>
+    <li>
+      <strong>Check the Marla standard on the Punjab side.</strong> If the Punjab property is on revenue land, a "10 Marla"
+      plot is 2,722.5 sq ft, more than 300 square yards.
+    </li>
+    <li>
+      <strong>Rounding.</strong> Listings often round 4.8 Marla up to "5 Marla". Convert the exact figure before you
+      negotiate.
+    </li>
+  </ul>
+  <p>
+    For any size not in the table, use the <a href="/">land area converter</a>: type the square yards and read off Marla
+    and Kanal on all three standards at once.
+  </p>
+</GuideLayout>

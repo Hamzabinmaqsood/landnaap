@@ -51,6 +51,7 @@ export const NAV_LINKS = [
   { href: '/', label: 'Area Converter' },
   { href: '/plot-size-calculator/', label: 'Plot Calculator' },
   { href: '/convert/', label: 'Conversions' },
+  { href: '/guides/', label: 'Guides' },
   { href: '/about/', label: 'About' },
 ] as const;
 

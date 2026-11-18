@@ -11,6 +11,8 @@ import {
   summaryTargets,
   toInputValue,
   unitHint,
+  unitLabel,
+  unitShort,
   type StandardId,
   type UnitId,
 } from '../lib/units';
@@ -93,7 +95,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
   <!-- Live result summary -->
   <div class="mt-5 rounded-xl bg-brand-700 px-4 py-4 text-white sm:px-5" aria-live="polite" aria-atomic="true">
     <p class="num text-sm font-medium text-brand-100" data-headline-source>
-      {hasValue ? `${formatNumber(initialValue as number)} ${UNITS[initialUnit].short} at ${std.label}/Marla =` : 'Enter an area to convert'}
+      {hasValue ? `${formatNumber(initialValue as number)} ${unitShort(initialUnit, initialValue as number)} at ${std.label}/Marla =` : 'Enter an area to convert'}
     </p>
     <p class="num mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl" data-headline-result>
       {values ? summaryTargets(values, initialUnit) : '—'}
@@ -166,7 +168,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
   <div class="mt-8">
     <h3 class="text-lg font-bold text-slate-900">Same area in all 3 Marla standards</h3>
     <p class="num mt-1 text-sm text-slate-600" data-compare-source>
-      {hasValue ? `Input: ${formatNumber(initialValue as number)} ${UNITS[initialUnit].label}` : 'Enter an area above to compare.'}
+      {hasValue ? `Input: ${formatNumber(initialValue as number)} ${unitLabel(initialUnit, initialValue as number)}` : 'Enter an area above to compare.'}
     </p>
     <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
       <table class="data-table">
@@ -229,6 +231,8 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
     summaryTargets,
     toInputValue,
     unitHint,
+    unitLabel,
+    unitShort,
     type StandardId,
     type UnitId,
   } from '../lib/units';
@@ -328,10 +332,10 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
       });
 
       if (headlineSource) {
-        headlineSource.textContent = `${formatNumber(value)} ${UNITS[unit].short} at ${std.label}/Marla =`;
+        headlineSource.textContent = `${formatNumber(value)} ${unitShort(unit, value)} at ${std.label}/Marla =`;
       }
       if (headlineResult) headlineResult.textContent = summaryTargets(values, unit);
-      if (compareSource) compareSource.textContent = `Input: ${formatNumber(value)} ${UNITS[unit].label}`;
+      if (compareSource) compareSource.textContent = `Input: ${formatNumber(value)} ${unitLabel(unit, value)}`;
 
       const comparison = compareStandards(value, unit);
       cells.forEach((c) => {
@@ -397,7 +401,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
       const values = convertAll(value, unit, standard);
       const comparison = compareStandards(value, unit);
       const lines: string[] = [];
-      lines.push(`Land area conversion: ${formatNumber(value)} ${UNITS[unit].label}`);
+      lines.push(`Land area conversion: ${formatNumber(value)} ${unitLabel(unit, value)}`);
       lines.push(`Selected standard: 1 Marla = ${std.label} (${std.name})`);
       lines.push('');
       UNIT_ORDER.forEach((u) => lines.push(`${UNITS[u].label}: ${formatNumber(values[u])}`));

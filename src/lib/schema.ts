@@ -71,6 +71,41 @@ export function websiteSchema(url: string): JsonLd {
   };
 }
 
+export function articleSchema(opts: {
+  headline: string;
+  description: string;
+  url: string;
+  datePublished: string;
+  dateModified: string;
+  wordCount: number;
+  siteUrl: string;
+}): JsonLd {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: opts.headline,
+    description: opts.description,
+    url: opts.url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': opts.url },
+    datePublished: opts.datePublished,
+    dateModified: opts.dateModified,
+    inLanguage: SITE.lang,
+    wordCount: opts.wordCount,
+    image: new URL('/og-image.png', opts.siteUrl).href,
+    author: {
+      '@type': 'Person',
+      name: SITE.owner,
+      url: new URL('/about/', opts.siteUrl).href,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE.name,
+      url: opts.siteUrl,
+      logo: { '@type': 'ImageObject', url: new URL('/og-image.png', opts.siteUrl).href },
+    },
+  };
+}
+
 /** Serialises JSON-LD safely for inline <script> injection. */
 export function serializeJsonLd(data: JsonLd): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');

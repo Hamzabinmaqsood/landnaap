@@ -1,0 +1,111 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('fard-intiqal-land-units-kanal-marla-sarsai');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="unit-chain">The unit chain: karam to acre</h2>
+  <p>
+    Land in Punjab's revenue records is measured with a single, internally consistent chain of units. It starts with the
+    <strong>karam</strong>, a measuring length of 5.5 ft (66 inches), and every larger unit is a whole multiple of the one
+    before it.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Unit</th>
+          <th scope="col">Definition</th>
+          <th scope="col" class="text-right">Square feet</th>
+          <th scope="col" class="text-right">Square yards</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Sarsai</th><td>1 karam × 1 karam</td><td class="text-right">30.25</td><td class="text-right">3.36</td></tr>
+        <tr><th scope="row">Marla</th><td>9 Sarsai</td><td class="text-right">272.25</td><td class="text-right">30.25</td></tr>
+        <tr><th scope="row">Kanal</th><td>20 Marla</td><td class="text-right">5,445</td><td class="text-right">605</td></tr>
+        <tr><th scope="row">Acre</th><td>8 Kanal (36 × 40 karam)</td><td class="text-right">43,560</td><td class="text-right">4,840</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Two numbers are worth remembering: a Kanal is 180 Sarsai, and an acre is 1,440 Sarsai (160 Marla). With those you can
+    move between any of the units with simple multiplication. Note that the revenue system always uses the 272.25 sq ft
+    Marla, even in districts where nearby housing societies sell plots in 225 sq ft Marla.
+  </p>
+
+  <h2 id="documents">The documents and terms you will meet</h2>
+  <ul>
+    <li>
+      <strong>Fard (fard malkiat):</strong> an extract from the record of rights showing the owners of a holding and their
+      shares. You need a current fard for almost any land transaction.
+    </li>
+    <li>
+      <strong>Jamabandi:</strong> the record of rights itself, prepared and updated periodically for each revenue estate
+      (mauza). It lists owners, cultivators, shares and areas.
+    </li>
+    <li>
+      <strong>Intiqal (mutation):</strong> the entry that records a change in ownership, for example after a sale, gift or
+      inheritance. Until the intiqal is sanctioned, the revenue record still shows the previous owner.
+    </li>
+    <li><strong>Khewat:</strong> the ownership account number grouping owners who share a holding.</li>
+    <li><strong>Khatauni:</strong> the cultivation account within a khewat, showing who cultivates the land.</li>
+    <li><strong>Khasra:</strong> the field number, identifying a specific parcel on the village map.</li>
+    <li><strong>Shajra (aks shajra):</strong> the village map showing khasra numbers and field boundaries.</li>
+  </ul>
+  <p>
+    In Punjab, computerised fards are issued through the Punjab Land Records Authority's Arazi Record Centres and online
+    services, which has made records easier to obtain and check than in the hand-written era.
+  </p>
+
+  <h2 id="notation">How area is written</h2>
+  <p>
+    Revenue records state area in Kanal and Marla, and Sarsai where needed. You will see it written in full, such as "4 Kanal
+    12 Marla 3 Sarsai", or compactly as <strong>4-12-3</strong> in the same order. Larger holdings may be expressed in acres
+    plus Kanal and Marla.
+  </p>
+  <p>
+    Ownership is often recorded as a share (hissa) of a khewat rather than a separate parcel. If three siblings jointly own
+    24 Kanal 6 Marla in equal shares, each one's share is a third of 486 Marla, which is 162 Marla or
+    <strong>8 Kanal 2 Marla</strong>. A share is an entitlement on paper; it does not show which part of the land is yours
+    until the land is partitioned.
+  </p>
+
+  <h2 id="convert">Converting a fard area to square feet</h2>
+  <p>The reliable method is to convert everything to Sarsai first, then multiply by 30.25.</p>
+  <ol>
+    <li>Take an area of 2 Kanal 7 Marla 4 Sarsai.</li>
+    <li>Kanal to Sarsai: 2 × 180 = 360.</li>
+    <li>Marla to Sarsai: 7 × 9 = 63.</li>
+    <li>Total: 360 + 63 + 4 = 427 Sarsai.</li>
+    <li>Square feet: 427 × 30.25 = <strong>12,916.75 sq ft</strong>.</li>
+  </ol>
+  <p>
+    If you want to know how many society plots that land could become, divide by 225: 12,916.75 ÷ 225 = 57.41 society Marla,
+    before any land is set aside for roads and amenities.
+  </p>
+
+  <h2 id="why-different">Why fard figures and society figures disagree</h2>
+  <p>
+    A developer buys farmland by the revenue Kanal and sells plots by the society Marla. The same acre that is 160 Marla in
+    the fard is 193.6 Marla when measured at 225 sq ft. Neither figure is wrong; they use different units. Trouble starts only
+    when someone compares a fard area with a society plot size without converting.
+  </p>
+
+  <h2 id="tips">Practical tips</h2>
+  <ul>
+    <li>Get a fresh fard before paying anything. Ownership and shares can change with each intiqal.</li>
+    <li>Match the khasra numbers on the fard with the shajra to confirm you are looking at the right land.</li>
+    <li>
+      Shares are not boundaries. For a specific parcel, ask for official demarcation (nishandehi) by revenue staff before you
+      build or fence.
+    </li>
+    <li>
+      Convert carefully. Use the <a href="/convert/1-marla-to-sarsai/">Marla to Sarsai</a> and
+      <a href="/convert/1-acre-to-kanal/">acre to Kanal</a> pages, or set the
+      <a href="/">land area converter</a> to the 272.25 standard.
+    </li>
+  </ul>
+</GuideLayout>

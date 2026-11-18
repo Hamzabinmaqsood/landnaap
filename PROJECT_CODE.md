@@ -13,8 +13,9 @@ npm install -D @astrojs/check@^0.9.12 typescript@^6.0.3
 
 # create every file below (package.json replaces the generated one), then:
 npm run dev        # http://localhost:4321
-npm test           # conversion engine unit tests
-npm run build      # astro check + static build into ./dist
+npm test           # 16 tests: math, slugs, links, llms.txt coverage
+npm run llms       # regenerate public/llms.txt from site data
+npm run build      # astro check + static build into ./dist (71 indexable pages)
 npx wrangler pages deploy dist --project-name=landnaap   # optional direct upload
 ```
 
@@ -33,6 +34,7 @@ public/ads.txt
 public/favicon.svg
 public/llms.txt
 public/robots.txt
+scripts/generate-llms.ts
 src/components/AdSlot.astro
 src/components/Breadcrumbs.astro
 src/components/BreakdownTable.astro
@@ -41,6 +43,7 @@ src/components/Footer.astro
 src/components/FormulaList.astro
 src/components/Header.astro
 src/components/LandConverter.astro
+src/components/LinkGrid.astro
 src/components/PlotCalculator.astro
 src/components/ReferenceTable.astro
 src/components/SidebarLinks.astro
@@ -48,7 +51,9 @@ src/components/StandardSelector.astro
 src/config/site.ts
 src/data/conversions.ts
 src/data/faqs.ts
+src/data/guides.ts
 src/layouts/BaseLayout.astro
+src/layouts/GuideLayout.astro
 src/lib/schema.ts
 src/lib/units.ts
 src/pages/404.astro
@@ -56,11 +61,19 @@ src/pages/about.astro
 src/pages/contact.astro
 src/pages/convert/[slug].astro
 src/pages/convert/index.astro
+src/pages/guides/covered-area-vs-plot-area-construction.astro
+src/pages/guides/dha-bahria-town-lda-plot-dimensions.astro
+src/pages/guides/fard-intiqal-land-units-kanal-marla-sarsai.astro
+src/pages/guides/how-to-measure-irregular-plot-area.astro
+src/pages/guides/index.astro
+src/pages/guides/karachi-sq-yards-gaz-vs-punjab-marla.astro
+src/pages/guides/marla-size-pakistan-225-vs-272-25.astro
 src/pages/index.astro
 src/pages/plot-size-calculator.astro
 src/pages/privacy-policy.astro
 src/pages/terms.astro
 src/styles/global.css
+tests/pages.test.ts
 tests/units.test.ts
 ```
 
@@ -109,9 +122,11 @@ A static, zero-backend Astro + Tailwind CSS site for Pakistani / South Asian lan
 
 - **Land Area Converter**: live, bidirectional Marla ⇄ Kanal ⇄ sq ft ⇄ sq yd (gaz) ⇄ sq m ⇄ acre ⇄ Sarsai, with 225 / 272.25 / 250 sq ft Marla standards, a three-standard comparison table, Copy Results and shareable URLs (`/?v=5&u=marla&s=225`).
 - **Plot Dimension & Cutting Calculator**: frontage × depth gives sq ft, sq yd, sq m, exact Marla, Kanal, a Kanal–Marla–Sarsai breakdown and the closest standard plot size.
-- **Programmatic SEO**: 8 pre-rendered `/convert/[slug]/` pages, each with a unique title, description and canonical URL, a static reference table, an FAQ, and `SoftwareApplication` + `FAQPage` + `BreadcrumbList` JSON-LD.
+- **Programmatic SEO**: 57 pre-rendered `/convert/[slug]/` pages in 6 groups, each with a unique context paragraph, a generated title, description and canonical URL, a worked calculation for every standard, a static reference table, links to adjacent sizes, an FAQ, and `SoftwareApplication` + `FAQPage` + `BreadcrumbList` JSON-LD.
+- **Guides**: `/guides/` plus 6 long-form references (600–900 words each) with `Article` + `FAQPage` JSON-LD, an automatic table of contents and reading time.
+- **71 indexable pages** in the sitemap (plus the 404 page).
 - **AI search (GEO)**: `public/llms.txt`, AI-crawler-friendly `robots.txt`, formulas in JSON-LD and visible HTML.
-- **AdSense-ready**: fixed-height `min-h-[90px]` banner and `min-h-[250px]` rectangle slots (zero CLS), plus About, Privacy Policy, Terms and Contact pages.
+- **AdSense-ready**: placements render nothing until configured, then use fixed `min-h-[90px]` / `min-h-[250px]` wrappers (zero CLS). Includes About, Privacy Policy, Terms and Contact pages.
 
 ## Quick start
 
@@ -119,20 +134,24 @@ A static, zero-backend Astro + Tailwind CSS site for Pakistani / South Asian lan
 # Requires Node.js 22.23.4+ (see .nvmrc)
 npm install
 npm run dev        # http://localhost:4321
-npm test           # unit tests for the conversion engine
+npm test           # conversion engine + page/link/llms.txt integrity tests
+npm run llms       # regenerate public/llms.txt from the site data
 npm run build      # astro check + static build to ./dist
 npm run preview    # serve ./dist locally
 ```
 
-## Before you deploy
+## Site details
 
-Replace the placeholder domain `https://www.example.com` in these three files:
+Domain, contact email, operator and location live in `src/config/site.ts`:
 
-1. `astro.config.mjs` (`SITE_URL`): used for canonical URLs, Open Graph, JSON-LD and the sitemap
-2. `public/robots.txt` (the `Sitemap:` line)
-3. `public/llms.txt` (all links)
+| Setting | Value |
+|---|---|
+| `SITE.url` | `https://landnaap.app` (also read by `astro.config.mjs`) |
+| `SITE.contactEmail` | `contact@landnaap.app` |
+| `SITE.owner` | Hamza Bin Maqsood |
+| `SITE.city` / `SITE.jurisdiction` | Islamabad, Pakistan / Islamabad |
 
-Then set your contact email, owner name and city in `src/config/site.ts`.
+`public/robots.txt` and `public/llms.txt` are static files, so if the domain ever changes, update them too.
 
 ## Deploy to Cloudflare Pages
 
@@ -152,14 +171,25 @@ npx wrangler pages deploy dist --project-name=landnaap
 
 ## Activating Google AdSense
 
-1. Paste the AdSense loader `<script>` where the `GOOGLE ADSENSE (site-wide loader)` comment sits in `src/layouts/BaseLayout.astro`.
-2. Paste each `<ins class="adsbygoogle">` unit inside its slot in `src/components/AdSlot.astro` (or per placement name). Every slot's HTML comment shows the exact snippet.
+Ads are **off by default**: no AdSense script loads and no ad containers render, so there are no empty boxes before approval.
+
+1. After approval, open `src/config/site.ts` and set `ADSENSE.client` (e.g. `ca-pub-1234567890123456`).
+   That alone adds the AdSense loader to every page (enough for Auto ads and site verification).
+2. For manual placements, create display ad units in AdSense and paste their slot IDs into `ADSENSE.slots`
+   (`header-banner`, `sidebar-rectangle`, `in-content-1`). Each placement with an ID renders an invisible wrapper with a
+   fixed `min-h-[90px]` or `min-h-[250px]`, so ads load with zero layout shift. Placements left as `''` stay hidden.
 3. Uncomment and fill the line in `public/ads.txt` with your publisher ID.
-4. EEA/UK traffic: enable a Google-certified CMP (for example AdSense's built-in "Privacy & messaging") before serving personalised ads.
+4. For EEA/UK traffic, enable a Google-certified consent message (AdSense → Privacy & messaging).
 
 ## Adding a conversion page
 
-Add an entry to `CONVERSIONS` in `src/data/conversions.ts`. The route, quick answer, pre-filled calculator, reference table, FAQ, JSON-LD, sitemap entry and internal links are all generated from it. Add the URL to `public/llms.txt` as well.
+Add a spec to `SPECS` in `src/data/conversions.ts` with a `value`, `from`, `to`, `category` and a unique `context` paragraph. The slug (`{value}-{from}-to-{to}`, with `3.5` becoming `3-5`), title, description, H1, answers, worked calculation, reference table, related links, FAQ, JSON-LD and sitemap entry are generated automatically. Then run `npm run llms` and `npm test`. The tests fail if a page is missing from `llms.txt`, has no inbound link, or duplicates another page's title, description or context.
+
+## Adding a guide
+
+1. Add its metadata and FAQs to `GUIDES` in `src/data/guides.ts`.
+2. Create `src/pages/guides/<slug>.astro` that wraps the body in `<GuideLayout guide={getGuide('<slug>')}>`. Give every `<h2>` an `id` so it appears in the table of contents.
+3. Run `npm run llms` and `npm test`.
 
 ## Project structure
 
@@ -173,15 +203,16 @@ Add an entry to `CONVERSIONS` in `src/data/conversions.ts`. The route, quick ans
 │   ├── og-image.png
 │   └── robots.txt
 ├── src/
-│   ├── components/           # calculators, tables, ad slots, layout parts
+│   ├── components/           # calculators, tables, link grids, ad slots, layout parts
 │   ├── config/site.ts        # brand, contact, nav
-│   ├── data/                 # conversion pages + FAQ content
-│   ├── layouts/BaseLayout.astro
+│   ├── data/                 # conversions.ts (57 specs), guides.ts, faqs.ts
+│   ├── layouts/              # BaseLayout.astro, GuideLayout.astro
 │   ├── lib/units.ts          # conversion engine (shared by build + browser)
 │   ├── lib/schema.ts         # JSON-LD builders
-│   ├── pages/                # routes (incl. convert/[slug].astro)
+│   ├── pages/                # routes: convert/[slug].astro, guides/*.astro, legal pages
 │   └── styles/global.css
-└── tests/units.test.ts
+├── scripts/generate-llms.ts  # builds public/llms.txt from the data
+└── tests/                    # units.test.ts, pages.test.ts
 ```
 
 ## Conversion constants
@@ -203,11 +234,11 @@ Add an entry to `CONVERSIONS` in `src/data/conversions.ts`. The route, quick ans
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
+import { SITE } from './src/config/site.ts';
 
-// IMPORTANT: set this to your production domain before deploying.
-// It is used for canonical URLs, Open Graph tags, JSON-LD and the sitemap.
-// Also update the same domain in public/robots.txt and public/llms.txt.
-const SITE_URL = 'https://www.example.com';
+// Production domain comes from src/config/site.ts (SITE.url). It drives canonical URLs,
+// Open Graph tags, JSON-LD and the sitemap. public/robots.txt and public/llms.txt use the same domain.
+const SITE_URL = SITE.url;
 
 export default defineConfig({
   site: SITE_URL,
@@ -254,8 +285,9 @@ export default defineConfig({
     "build:fast": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node --experimental-strip-types --test tests/units.test.ts",
-    "astro": "astro"
+    "test": "node --experimental-strip-types --test tests/units.test.ts tests/pages.test.ts",
+    "astro": "astro",
+    "llms": "node --experimental-strip-types scripts/generate-llms.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.5",
@@ -323,10 +355,9 @@ pages_build_output_dir = "./dist"
 ## `public/ads.txt`
 
 ```text
-# ads.txt — authorised digital sellers
-# After Google AdSense approval, replace the line below with the exact line shown in
-# your AdSense account (Sites > ads.txt), then remove the leading "#".
-# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+# ads.txt for landnaap.app
+# Authorised digital sellers. Add the exact line shown in your Google AdSense account
+# (Sites > ads.txt) here after approval.
 ```
 
 ## `public/favicon.svg`
@@ -340,78 +371,142 @@ pages_build_output_dir = "./dist"
 ```text
 # LandNaap: Marla, Kanal & Plot Size Calculator (Pakistan)
 
-> Free, client-side land area calculators for Pakistan and South Asia. Converts Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai using three Marla standards (225, 250 and 272.25 sq ft), and calculates plot area and standard plot size from frontage × depth.
+> Free, client-side land area calculators and guides for Pakistan and South Asia. Converts Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai using three Marla standards (225, 250 and 272.25 sq ft), and calculates plot area and standard plot size from frontage × depth.
 
-All calculations run in the browser. Every tool page also contains static HTML reference tables and FAQPage / SoftwareApplication JSON-LD with the same formulas.
+All calculations run in the browser. Every tool page also contains static HTML reference tables and JSON-LD (SoftwareApplication, FAQPage, BreadcrumbList); guides carry Article + FAQPage JSON-LD. Operated by Hamza Bin Maqsood, Islamabad, Pakistan. Contact: contact@landnaap.app.
 
-Base URL: https://www.example.com
+Base URL: https://landnaap.app
 
 ## Marla standards
 
 | Standard | 1 Marla | 1 Kanal (20 Marla) | 1 Sarsai (1/9 Marla) | Used by |
 |---|---|---|---|---|
-| Housing Society | 225 sq ft (25 sq yd) | 4,500 sq ft | 25 sq ft | DHA, Bahria Town, LDA, most housing societies |
+| Housing Society | 225 sq ft (25 sq yd) | 4,500 sq ft | 25 sq ft | DHA, Bahria Town, LDA-approved and most housing societies |
 | Revenue / Patwari | 272.25 sq ft (30.25 sq yd) | 5,445 sq ft | 30.25 sq ft (1 square karam, 5.5 ft × 5.5 ft) | Revenue records (fard, jamabandi, registry, intiqal), agricultural land |
 | Custom Developer | 250 sq ft (27.78 sq yd) | 5,000 sq ft | 27.78 sq ft | Some private developer schemes |
 
-The word "Marla" is ambiguous: always state which standard is used. On the revenue standard, 1 Acre = 8 Kanal = 160 Marla.
+The word "Marla" is ambiguous: always state which standard is used. On the revenue standard, 1 Acre = 8 Kanal = 160 Marla. Results below are listed as value @225 | @250 | @272.25 sq ft Marla.
 
 ## Exact formulas
 
-- Square Feet = Marla × S, where S = 225, 250 or 272.25
-- Marla = Square Feet ÷ S
-- Kanal = Marla ÷ 20 (identical in every standard)
-- Sarsai = Marla × 9
+- Square Feet = Marla × Marla size (225, 250 or 272.25 sq ft)
+- Marla = Square Feet ÷ Marla size
+- 1 Kanal = 20 Marla (4,500 sq ft at 225; 5,000 sq ft at 250; 5,445 sq ft at 272.25)
+- 1 Sarsai = 1/9 Marla (25 sq ft at 225; 27.78 sq ft at 250; 30.25 sq ft at 272.25)
 - Square Yards (Gaz) = Square Feet ÷ 9
 - Square Meters = Square Feet × 0.09290304
-- Acres = Square Feet ÷ 43,560
-- Plot Area (sq ft) = Frontage (ft) × Depth (ft); Marla = Plot Area ÷ S
+- Acres = Square Feet ÷ 43,560 (1 Acre = 8 Kanal = 160 Marla on the 272.25 revenue standard)
+- Plot Area (sq ft) = Frontage (ft) × Depth (ft); Marla = Plot Area ÷ Marla size
+- Kanal = Marla ÷ 20 and Sarsai = Marla × 9 (identical in every standard)
 - Closest standard plot = nearest of 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16 Marla or 1, 1.5, 2, 3, 4, 8 Kanal; within ±2.5% counts as a match
-
-## Key values
-
-| Area | 225 sq ft Marla | 250 sq ft Marla | 272.25 sq ft Marla |
-|---|---|---|---|
-| 3 Marla | 675 sq ft | 750 sq ft | 816.75 sq ft |
-| 5 Marla | 1,125 sq ft (125 sq yd) | 1,250 sq ft (138.89 sq yd) | 1,361.25 sq ft (151.25 sq yd) |
-| 7 Marla | 1,575 sq ft | 1,750 sq ft | 1,905.75 sq ft |
-| 10 Marla | 2,250 sq ft | 2,500 sq ft | 2,722.5 sq ft |
-| 1 Kanal | 4,500 sq ft (20 Marla) | 5,000 sq ft (20 Marla) | 5,445 sq ft (20 Marla) |
-| 1 Acre (43,560 sq ft) | 9.68 Kanal / 193.6 Marla | 8.712 Kanal / 174.24 Marla | 8 Kanal / 160 Marla |
-
-Common society plot dimensions (225 sq ft Marla): 25 × 45 ft = 5 Marla; 30 × 60 ft = 8 Marla; 35 × 65 ft = 2,275 sq ft ≈ 10.11 Marla (sold as 10 Marla); 50 × 90 ft = 1 Kanal.
 
 ## Tools
 
-- [Land Area Converter](https://www.example.com/): live bidirectional conversion between Marla, Kanal, sq ft, sq yd, sq m, acres and Sarsai, with a side-by-side comparison of all three Marla standards. Shareable URLs: `/?v=5&u=marla&s=225` (u = marla | kanal | sqft | sqyd | sqm | acre | sarsai; s = 225 | 250 | 272.25).
-- [Plot Size Calculator](https://www.example.com/plot-size-calculator/): frontage × depth in feet → sq ft, sq yd, sq m, exact Marla, Kanal, Kanal–Marla–Sarsai breakdown and closest standard plot category.
+- [Land Area Converter](https://landnaap.app/): live bidirectional conversion between Marla, Kanal, sq ft, sq yd, sq m, acres and Sarsai, with a side-by-side comparison of all three Marla standards. Shareable URLs: `/?v=5&u=marla&s=225` (u = marla | kanal | sqft | sqyd | sqm | acre | sarsai; s = 225 | 250 | 272.25).
+- [Plot Size Calculator](https://landnaap.app/plot-size-calculator/): frontage × depth in feet → sq ft, sq yd, sq m, exact Marla, Kanal, Kanal–Marla–Sarsai breakdown and closest standard plot category.
+
+## Guides
+
+- [All guides](https://landnaap.app/guides/)
+- [Why Marla Size Differs: 225 vs 272.25 vs 250 Sq Ft](https://landnaap.app/guides/marla-size-pakistan-225-vs-272-25/): The karam behind each Marla standard, where each one is used and how to avoid paying for land you do not get.
+- [Standard Plot Dimensions in DHA, Bahria Town and LDA Schemes](https://landnaap.app/guides/dha-bahria-town-lda-plot-dimensions/): Typical plot cuts (25×45, 30×60, 35×65, 50×90 ft), why some are slightly over size, and what to check before buying.
+- [Converting Karachi Square Yards (Gaz) to Punjab Marla and Kanal](https://landnaap.app/guides/karachi-sq-yards-gaz-vs-punjab-marla/): How 120, 240, 500 and 1,000 gaz plots map onto Marla and Kanal, and the shortcuts that make it mental arithmetic.
+- [Understanding Revenue Records: How Kanal, Marla, Sarsai and Karam Work Together](https://landnaap.app/guides/fard-intiqal-land-units-kanal-marla-sarsai/): The karam-based unit chain used by the Patwari, how areas appear on a fard, and how to turn them into square feet.
+- [Plot Area vs Covered Area and FAR Basics for Construction Estimates](https://landnaap.app/guides/covered-area-vs-plot-area-construction/): Why a 5 Marla plot is not 5 Marla of house: setbacks, ground coverage, FAR and how builders quote covered area.
+- [How to Calculate the Area of an Irregular Plot (Heron's Formula and Triangulation)](https://landnaap.app/guides/how-to-measure-irregular-plot-area/): A step-by-step method for non-rectangular plots using a diagonal and Heron's formula, with a worked example.
 
 ## Conversion pages
 
-- [3 Marla to Sq Ft](https://www.example.com/convert/3-marla-to-sq-ft/)
-- [5 Marla to Sq Ft](https://www.example.com/convert/5-marla-to-sq-ft/)
-- [7 Marla to Sq Ft](https://www.example.com/convert/7-marla-to-sq-ft/)
-- [10 Marla to Sq Ft](https://www.example.com/convert/10-marla-to-sq-ft/)
-- [1 Kanal to Sq Ft](https://www.example.com/convert/1-kanal-to-sq-ft/)
-- [1 Kanal to Marla](https://www.example.com/convert/1-kanal-to-marla/)
-- [5 Marla to Square Yards](https://www.example.com/convert/5-marla-to-sq-yards/)
-- [1 Acre to Kanal](https://www.example.com/convert/1-acre-to-kanal/)
-- [All conversions](https://www.example.com/convert/)
+URL pattern: https://landnaap.app/convert/{value}-{from}-to-{to}/ where decimals use a hyphen (3.5 → 3-5) and units are marla, kanal, sq-ft, sq-yards, sq-meters, acre, sarsai. Index: https://landnaap.app/convert/
+
+### Marla to Square Feet
+
+- [2 Marla to Sq Ft](https://landnaap.app/convert/2-marla-to-sq-ft/): 2 Marla = 450 Sq Ft @225 | 500 Sq Ft @250 | 544.5 Sq Ft @272.25
+- [3 Marla to Sq Ft](https://landnaap.app/convert/3-marla-to-sq-ft/): 3 Marla = 675 Sq Ft @225 | 750 Sq Ft @250 | 816.75 Sq Ft @272.25
+- [3.5 Marla to Sq Ft](https://landnaap.app/convert/3-5-marla-to-sq-ft/): 3.5 Marla = 787.5 Sq Ft @225 | 875 Sq Ft @250 | 952.88 Sq Ft @272.25
+- [4 Marla to Sq Ft](https://landnaap.app/convert/4-marla-to-sq-ft/): 4 Marla = 900 Sq Ft @225 | 1,000 Sq Ft @250 | 1,089 Sq Ft @272.25
+- [5 Marla to Sq Ft](https://landnaap.app/convert/5-marla-to-sq-ft/): 5 Marla = 1,125 Sq Ft @225 | 1,250 Sq Ft @250 | 1,361.25 Sq Ft @272.25
+- [6 Marla to Sq Ft](https://landnaap.app/convert/6-marla-to-sq-ft/): 6 Marla = 1,350 Sq Ft @225 | 1,500 Sq Ft @250 | 1,633.5 Sq Ft @272.25
+- [7 Marla to Sq Ft](https://landnaap.app/convert/7-marla-to-sq-ft/): 7 Marla = 1,575 Sq Ft @225 | 1,750 Sq Ft @250 | 1,905.75 Sq Ft @272.25
+- [8 Marla to Sq Ft](https://landnaap.app/convert/8-marla-to-sq-ft/): 8 Marla = 1,800 Sq Ft @225 | 2,000 Sq Ft @250 | 2,178 Sq Ft @272.25
+- [10 Marla to Sq Ft](https://landnaap.app/convert/10-marla-to-sq-ft/): 10 Marla = 2,250 Sq Ft @225 | 2,500 Sq Ft @250 | 2,722.5 Sq Ft @272.25
+- [12 Marla to Sq Ft](https://landnaap.app/convert/12-marla-to-sq-ft/): 12 Marla = 2,700 Sq Ft @225 | 3,000 Sq Ft @250 | 3,267 Sq Ft @272.25
+- [15 Marla to Sq Ft](https://landnaap.app/convert/15-marla-to-sq-ft/): 15 Marla = 3,375 Sq Ft @225 | 3,750 Sq Ft @250 | 4,083.75 Sq Ft @272.25
+
+### Marla to Square Yards (Gaz)
+
+- [1 Marla to Sq Yards](https://landnaap.app/convert/1-marla-to-sq-yards/): 1 Marla = 25 Sq Yards @225 | 27.7778 Sq Yards @250 | 30.25 Sq Yards @272.25
+- [2 Marla to Sq Yards](https://landnaap.app/convert/2-marla-to-sq-yards/): 2 Marla = 50 Sq Yards @225 | 55.5556 Sq Yards @250 | 60.5 Sq Yards @272.25
+- [3 Marla to Sq Yards](https://landnaap.app/convert/3-marla-to-sq-yards/): 3 Marla = 75 Sq Yards @225 | 83.3333 Sq Yards @250 | 90.75 Sq Yards @272.25
+- [4 Marla to Sq Yards](https://landnaap.app/convert/4-marla-to-sq-yards/): 4 Marla = 100 Sq Yards @225 | 111.11 Sq Yards @250 | 121 Sq Yards @272.25
+- [5 Marla to Sq Yards](https://landnaap.app/convert/5-marla-to-sq-yards/): 5 Marla = 125 Sq Yards @225 | 138.89 Sq Yards @250 | 151.25 Sq Yards @272.25
+- [6 Marla to Sq Yards](https://landnaap.app/convert/6-marla-to-sq-yards/): 6 Marla = 150 Sq Yards @225 | 166.67 Sq Yards @250 | 181.5 Sq Yards @272.25
+- [7 Marla to Sq Yards](https://landnaap.app/convert/7-marla-to-sq-yards/): 7 Marla = 175 Sq Yards @225 | 194.44 Sq Yards @250 | 211.75 Sq Yards @272.25
+- [8 Marla to Sq Yards](https://landnaap.app/convert/8-marla-to-sq-yards/): 8 Marla = 200 Sq Yards @225 | 222.22 Sq Yards @250 | 242 Sq Yards @272.25
+- [10 Marla to Sq Yards](https://landnaap.app/convert/10-marla-to-sq-yards/): 10 Marla = 250 Sq Yards @225 | 277.78 Sq Yards @250 | 302.5 Sq Yards @272.25
+- [12 Marla to Sq Yards](https://landnaap.app/convert/12-marla-to-sq-yards/): 12 Marla = 300 Sq Yards @225 | 333.33 Sq Yards @250 | 363 Sq Yards @272.25
+- [15 Marla to Sq Yards](https://landnaap.app/convert/15-marla-to-sq-yards/): 15 Marla = 375 Sq Yards @225 | 416.67 Sq Yards @250 | 453.75 Sq Yards @272.25
+
+### Marla to Square Meters
+
+- [3 Marla to Sq Meters](https://landnaap.app/convert/3-marla-to-sq-meters/): 3 Marla = 62.7096 Sq Meters @225 | 69.6773 Sq Meters @250 | 75.8786 Sq Meters @272.25
+- [5 Marla to Sq Meters](https://landnaap.app/convert/5-marla-to-sq-meters/): 5 Marla = 104.52 Sq Meters @225 | 116.13 Sq Meters @250 | 126.46 Sq Meters @272.25
+- [7 Marla to Sq Meters](https://landnaap.app/convert/7-marla-to-sq-meters/): 7 Marla = 146.32 Sq Meters @225 | 162.58 Sq Meters @250 | 177.05 Sq Meters @272.25
+- [10 Marla to Sq Meters](https://landnaap.app/convert/10-marla-to-sq-meters/): 10 Marla = 209.03 Sq Meters @225 | 232.26 Sq Meters @250 | 252.93 Sq Meters @272.25
+
+### Kanal Conversions
+
+- [1 Kanal to Sq Ft](https://landnaap.app/convert/1-kanal-to-sq-ft/): 1 Kanal = 4,500 Sq Ft @225 | 5,000 Sq Ft @250 | 5,445 Sq Ft @272.25
+- [1 Kanal to Marla](https://landnaap.app/convert/1-kanal-to-marla/): 1 Kanal = 20 Marla (all standards)
+- [1 Kanal to Sq Yards](https://landnaap.app/convert/1-kanal-to-sq-yards/): 1 Kanal = 500 Sq Yards @225 | 555.56 Sq Yards @250 | 605 Sq Yards @272.25
+- [1 Kanal to Sq Meters](https://landnaap.app/convert/1-kanal-to-sq-meters/): 1 Kanal = 418.06 Sq Meters @225 | 464.52 Sq Meters @250 | 505.86 Sq Meters @272.25
+- [1 Kanal to Acres](https://landnaap.app/convert/1-kanal-to-acre/): 1 Kanal = 0.103306 Acres @225 | 0.114784 Acres @250 | 0.125 Acres @272.25
+- [2 Kanal to Sq Ft](https://landnaap.app/convert/2-kanal-to-sq-ft/): 2 Kanal = 9,000 Sq Ft @225 | 10,000 Sq Ft @250 | 10,890 Sq Ft @272.25
+- [2 Kanal to Marla](https://landnaap.app/convert/2-kanal-to-marla/): 2 Kanal = 40 Marla (all standards)
+- [2 Kanal to Sq Yards](https://landnaap.app/convert/2-kanal-to-sq-yards/): 2 Kanal = 1,000 Sq Yards @225 | 1,111.11 Sq Yards @250 | 1,210 Sq Yards @272.25
+- [4 Kanal to Acres](https://landnaap.app/convert/4-kanal-to-acre/): 4 Kanal = 0.413223 Acres @225 | 0.459137 Acres @250 | 0.5 Acres @272.25
+- [8 Kanal to Acres](https://landnaap.app/convert/8-kanal-to-acre/): 8 Kanal = 0.826446 Acres @225 | 0.918274 Acres @250 | 1 Acre @272.25
+- [10 Kanal to Acres](https://landnaap.app/convert/10-kanal-to-acre/): 10 Kanal = 1.0331 Acres @225 | 1.1478 Acres @250 | 1.25 Acres @272.25
+
+### Acre & Square Feet (Reverse)
+
+- [1 Acre to Kanal](https://landnaap.app/convert/1-acre-to-kanal/): 1 Acre = 9.68 Kanal @225 | 8.712 Kanal @250 | 8 Kanal @272.25
+- [1 Acre to Marla](https://landnaap.app/convert/1-acre-to-marla/): 1 Acre = 193.6 Marla @225 | 174.24 Marla @250 | 160 Marla @272.25
+- [1 Acre to Sq Ft](https://landnaap.app/convert/1-acre-to-sq-ft/): 1 Acre = 43,560 Sq Ft (all standards)
+- [1 Acre to Sq Yards](https://landnaap.app/convert/1-acre-to-sq-yards/): 1 Acre = 4,840 Sq Yards (all standards)
+- [2 Acres to Kanal](https://landnaap.app/convert/2-acre-to-kanal/): 2 Acres = 19.36 Kanal @225 | 17.424 Kanal @250 | 16 Kanal @272.25
+- [5 Acres to Kanal](https://landnaap.app/convert/5-acre-to-kanal/): 5 Acres = 48.4 Kanal @225 | 43.56 Kanal @250 | 40 Kanal @272.25
+- [1,000 Sq Ft to Marla](https://landnaap.app/convert/1000-sq-ft-to-marla/): 1,000 Sq Ft = 4.4444 Marla @225 | 4 Marla @250 | 3.6731 Marla @272.25
+- [1,125 Sq Ft to Marla](https://landnaap.app/convert/1125-sq-ft-to-marla/): 1,125 Sq Ft = 5 Marla @225 | 4.5 Marla @250 | 4.1322 Marla @272.25
+- [2,250 Sq Ft to Marla](https://landnaap.app/convert/2250-sq-ft-to-marla/): 2,250 Sq Ft = 10 Marla @225 | 9 Marla @250 | 8.2645 Marla @272.25
+- [4,500 Sq Ft to Marla](https://landnaap.app/convert/4500-sq-ft-to-marla/): 4,500 Sq Ft = 20 Marla @225 | 18 Marla @250 | 16.5289 Marla @272.25
+- [5,445 Sq Ft to Marla](https://landnaap.app/convert/5445-sq-ft-to-marla/): 5,445 Sq Ft = 24.2 Marla @225 | 21.78 Marla @250 | 20 Marla @272.25
+
+### Sarsai & Gaz Conversions
+
+- [1 Marla to Sarsai](https://landnaap.app/convert/1-marla-to-sarsai/): 1 Marla = 9 Sarsai (all standards)
+- [1 Marla to Sq Ft](https://landnaap.app/convert/1-marla-to-sq-ft/): 1 Marla = 225 Sq Ft @225 | 250 Sq Ft @250 | 272.25 Sq Ft @272.25
+- [100 Sq Yards to Marla](https://landnaap.app/convert/100-sq-yards-to-marla/): 100 Sq Yards = 4 Marla @225 | 3.6 Marla @250 | 3.3058 Marla @272.25
+- [120 Sq Yards to Marla](https://landnaap.app/convert/120-sq-yards-to-marla/): 120 Sq Yards = 4.8 Marla @225 | 4.32 Marla @250 | 3.9669 Marla @272.25
+- [240 Sq Yards to Marla](https://landnaap.app/convert/240-sq-yards-to-marla/): 240 Sq Yards = 9.6 Marla @225 | 8.64 Marla @250 | 7.9339 Marla @272.25
+- [250 Sq Yards to Marla](https://landnaap.app/convert/250-sq-yards-to-marla/): 250 Sq Yards = 10 Marla @225 | 9 Marla @250 | 8.2645 Marla @272.25
+- [400 Sq Yards to Marla](https://landnaap.app/convert/400-sq-yards-to-marla/): 400 Sq Yards = 16 Marla @225 | 14.4 Marla @250 | 13.2231 Marla @272.25
+- [500 Sq Yards to Kanal](https://landnaap.app/convert/500-sq-yards-to-kanal/): 500 Sq Yards = 1 Kanal @225 | 0.9 Kanal @250 | 0.826446 Kanal @272.25
+- [1,000 Sq Yards to Kanal](https://landnaap.app/convert/1000-sq-yards-to-kanal/): 1,000 Sq Yards = 2 Kanal @225 | 1.8 Kanal @250 | 1.6529 Kanal @272.25
 
 ## Optional
 
-- [About](https://www.example.com/about/)
-- [Privacy Policy](https://www.example.com/privacy-policy/)
-- [Terms of Use](https://www.example.com/terms/)
-- [Contact](https://www.example.com/contact/)
-- [Sitemap](https://www.example.com/sitemap-index.xml)
+- [About](https://landnaap.app/about/)
+- [Privacy Policy](https://landnaap.app/privacy-policy/)
+- [Terms of Use](https://landnaap.app/terms/)
+- [Contact](https://landnaap.app/contact/)
+- [Sitemap](https://landnaap.app/sitemap-index.xml)
 ```
 
 ## `public/robots.txt`
 
 ```text
 # robots.txt for LandNaap
-# Replace https://www.example.com with your production domain.
 
 User-agent: *
 Allow: /
@@ -436,7 +531,100 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://www.example.com/sitemap-index.xml
+Sitemap: https://landnaap.app/sitemap-index.xml
+```
+
+## `scripts/generate-llms.ts`
+
+```ts
+/**
+ * Regenerates public/llms.txt from the site's own data, so the file always lists every
+ * conversion page and guide with numbers identical to the calculators.
+ *
+ *   npm run llms
+ *
+ * `npm test` fails if public/llms.txt is missing any conversion or guide URL.
+ */
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { SITE } from '../src/config/site.ts';
+import { ANSWER_ORDER, CATEGORIES, CONVERSIONS, conversionsInCategory, shortName } from '../src/data/conversions.ts';
+import { GUIDES } from '../src/data/guides.ts';
+import { FORMULAS, formatNumber } from '../src/lib/units.ts';
+
+const base = SITE.url;
+const u = (path: string) => `${base}${path}`;
+
+function conversionLine(slug: string): string {
+  const c = CONVERSIONS.find((x) => x.slug === slug);
+  if (!c) throw new Error(slug);
+  const answer = c.sameAcross
+    ? `${formatNumber(c.results['225'])} ${shortName(c.to, c.results['225'])} (all standards)`
+    : ANSWER_ORDER.map((s) => `${formatNumber(c.results[s])} ${shortName(c.to, c.results[s])} @${s}`).join(' | ');
+  return `- [${c.linkLabel}](${u(`/convert/${c.slug}/`)}): ${formatNumber(c.value)} ${shortName(c.from, c.value)} = ${answer}`;
+}
+
+const lines: string[] = [
+  `# ${SITE.name}: Marla, Kanal & Plot Size Calculator (Pakistan)`,
+  '',
+  `> Free, client-side land area calculators and guides for Pakistan and South Asia. Converts Marla, Kanal, square feet, square yards (gaz), square meters, acres and Sarsai using three Marla standards (225, 250 and 272.25 sq ft), and calculates plot area and standard plot size from frontage × depth.`,
+  '',
+  `All calculations run in the browser. Every tool page also contains static HTML reference tables and JSON-LD (SoftwareApplication, FAQPage, BreadcrumbList); guides carry Article + FAQPage JSON-LD. Operated by ${SITE.owner}, ${SITE.city}. Contact: ${SITE.contactEmail}.`,
+  '',
+  `Base URL: ${base}`,
+  '',
+  '## Marla standards',
+  '',
+  '| Standard | 1 Marla | 1 Kanal (20 Marla) | 1 Sarsai (1/9 Marla) | Used by |',
+  '|---|---|---|---|---|',
+  '| Housing Society | 225 sq ft (25 sq yd) | 4,500 sq ft | 25 sq ft | DHA, Bahria Town, LDA-approved and most housing societies |',
+  '| Revenue / Patwari | 272.25 sq ft (30.25 sq yd) | 5,445 sq ft | 30.25 sq ft (1 square karam, 5.5 ft × 5.5 ft) | Revenue records (fard, jamabandi, registry, intiqal), agricultural land |',
+  '| Custom Developer | 250 sq ft (27.78 sq yd) | 5,000 sq ft | 27.78 sq ft | Some private developer schemes |',
+  '',
+  'The word "Marla" is ambiguous: always state which standard is used. On the revenue standard, 1 Acre = 8 Kanal = 160 Marla. Results below are listed as value @225 | @250 | @272.25 sq ft Marla.',
+  '',
+  '## Exact formulas',
+  '',
+  ...FORMULAS.map((f) => `- ${f}`),
+  '- Kanal = Marla ÷ 20 and Sarsai = Marla × 9 (identical in every standard)',
+  '- Closest standard plot = nearest of 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16 Marla or 1, 1.5, 2, 3, 4, 8 Kanal; within ±2.5% counts as a match',
+  '',
+  '## Tools',
+  '',
+  `- [Land Area Converter](${u('/')}): live bidirectional conversion between Marla, Kanal, sq ft, sq yd, sq m, acres and Sarsai, with a side-by-side comparison of all three Marla standards. Shareable URLs: \`/?v=5&u=marla&s=225\` (u = marla | kanal | sqft | sqyd | sqm | acre | sarsai; s = 225 | 250 | 272.25).`,
+  `- [Plot Size Calculator](${u('/plot-size-calculator/')}): frontage × depth in feet → sq ft, sq yd, sq m, exact Marla, Kanal, Kanal–Marla–Sarsai breakdown and closest standard plot category.`,
+  '',
+  '## Guides',
+  '',
+  `- [All guides](${u('/guides/')})`,
+  ...GUIDES.map((g) => `- [${g.h1}](${u(`/guides/${g.slug}/`)}): ${g.summary}`),
+  '',
+  '## Conversion pages',
+  '',
+  `URL pattern: ${base}/convert/{value}-{from}-to-{to}/ where decimals use a hyphen (3.5 → 3-5) and units are marla, kanal, sq-ft, sq-yards, sq-meters, acre, sarsai. Index: ${u('/convert/')}`,
+  '',
+];
+
+for (const cat of CATEGORIES) {
+  lines.push(`### ${cat.title}`, '');
+  for (const c of conversionsInCategory(cat.id)) lines.push(conversionLine(c.slug));
+  lines.push('');
+}
+
+lines.push(
+  '## Optional',
+  '',
+  `- [About](${u('/about/')})`,
+  `- [Privacy Policy](${u('/privacy-policy/')})`,
+  `- [Terms of Use](${u('/terms/')})`,
+  `- [Contact](${u('/contact/')})`,
+  `- [Sitemap](${u('/sitemap-index.xml')})`,
+  '',
+);
+
+const out = fileURLToPath(new URL('../public/llms.txt', import.meta.url));
+writeFileSync(out, lines.join('\n'));
+console.log(`Wrote ${out} (${CONVERSIONS.length} conversions, ${GUIDES.length} guides)`);
 ```
 
 ## `src/components/AdSlot.astro`
@@ -444,49 +632,49 @@ Sitemap: https://www.example.com/sitemap-index.xml
 ```astro
 ---
 /**
- * Fixed-height AdSense placeholder.
+ * Google AdSense placement.
  *
- * The container reserves its final height *before* any ad loads, so inserting an
- * <ins class="adsbygoogle"> unit later causes zero Cumulative Layout Shift (CLS).
+ * Until a publisher ID and a slot ID for this placement are set in src/config/site.ts
+ * (ADSENSE), this renders ONLY an HTML comment marking the position. No box, border,
+ * background, label or reserved space appears on screen.
  *
- * variant="banner"    -> min-h-[90px]   (leaderboard / responsive horizontal)
- * variant="rectangle" -> min-h-[250px]  (300x250 sidebar or in-content)
+ * Once configured it renders an invisible (no border, no background) wrapper with a fixed
+ * min-height, so the ad fills space that is already reserved: zero Cumulative Layout Shift.
+ *   variant="banner"    -> min-h-[90px]
+ *   variant="rectangle" -> min-h-[250px]
  */
+import { ADSENSE, adsEnabled, type AdPlacement } from '../config/site';
+
 interface Props {
   variant: 'banner' | 'rectangle';
-  /** Identifier for this placement, e.g. "header-banner" or "sidebar-1" */
-  name: string;
+  name: AdPlacement;
   class?: string;
 }
 
 const { variant, name, class: className = '' } = Astro.props;
-
+const enabled = adsEnabled(name);
 const sizeClass = variant === 'banner' ? 'min-h-[90px]' : 'min-h-[250px]';
-const label = variant === 'banner' ? 'Header banner (responsive, 90px reserved)' : 'Rectangle 300x250 (250px reserved)';
-
-const openComment = `<!-- ===== GOOGLE ADSENSE SLOT: ${name} | ${label} =====
-  To activate, paste your ad unit INSIDE the div below, for example:
-  <ins class="adsbygoogle" style="display:block;min-height:${variant === 'banner' ? '90' : '250'}px"
-       data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="YYYYYYYYYY"
-       data-ad-format="${variant === 'banner' ? 'horizontal' : 'rectangle'}" data-full-width-responsive="true"></ins>
-  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  Keep the min-height class on the wrapper so the layout never shifts. -->`;
-const closeComment = `<!-- ===== END ADSENSE SLOT: ${name} ===== -->`;
+const minHeight = variant === 'banner' ? '90px' : '250px';
+const placeholderComment = `<!-- AdSense placement "${name}" (${variant}, ${minHeight} reserved when active): set ADSENSE.client and ADSENSE.slots["${name}"] in src/config/site.ts to show an ad here -->`;
 ---
 
-<Fragment set:html={openComment} />
-<div
-  class:list={[
-    'ad-slot relative flex w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-100/70',
-    sizeClass,
-    className,
-  ]}
-  data-ad-placement={name}
-  data-ad-variant={variant}
->
-  <span class="pointer-events-none text-[11px] font-medium tracking-widest text-slate-400 uppercase select-none">Advertisement</span>
-</div>
-<Fragment set:html={closeComment} />
+{
+  enabled ? (
+    <div class:list={['w-full overflow-hidden', sizeClass, className]} data-ad-placement={name}>
+      <ins
+        class="adsbygoogle"
+        style={`display:block;min-height:${minHeight}`}
+        data-ad-client={ADSENSE.client}
+        data-ad-slot={ADSENSE.slots[name]}
+        data-ad-format={variant === 'banner' ? 'horizontal' : 'rectangle'}
+        data-full-width-responsive="true"
+      />
+      <script is:inline>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+  ) : (
+    <Fragment set:html={placeholderComment} />
+  )
+}
 ```
 
 ## `src/components/Breadcrumbs.astro`
@@ -530,7 +718,7 @@ const { items } = Astro.props;
 ```astro
 ---
 /** Static table: one input value expressed in every unit under every Marla standard. */
-import { STANDARDS, UNITS, UNIT_ORDER, compareStandards, formatNumber, type UnitId } from '../lib/units';
+import { STANDARDS, UNITS, UNIT_ORDER, compareStandards, formatNumber, unitLabel, type UnitId } from '../lib/units';
 
 interface Props {
   value: number;
@@ -543,7 +731,7 @@ const data = compareStandards(value, unit);
 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
   <table class="data-table">
     <caption class="px-3 py-3 text-left text-sm font-medium text-slate-600">
-      {formatNumber(value)} {UNITS[unit].label} in every unit and Marla standard
+      {formatNumber(value)} {unitLabel(unit, value)} in every unit and Marla standard
     </caption>
     <thead>
       <tr>
@@ -615,7 +803,8 @@ const { items, heading = 'Frequently asked questions', id = 'faq' } = Astro.prop
 ```astro
 ---
 import { FOOTER_LINKS, SITE } from '../config/site';
-import { CONVERSIONS } from '../data/conversions';
+import { POPULAR_CONVERSIONS } from '../data/conversions';
+import { GUIDES } from '../data/guides';
 
 const year = new Date().getFullYear();
 ---
@@ -637,7 +826,7 @@ const year = new Date().getFullYear();
       <p class="text-sm font-bold text-slate-900">Popular conversions</p>
       <ul class="mt-3 space-y-1.5 text-sm">
         {
-          CONVERSIONS.map((c) => (
+          POPULAR_CONVERSIONS.map((c) => (
             <li>
               <a href={`/convert/${c.slug}/`} class="text-slate-600 hover:text-brand-700 hover:underline">
                 {c.linkLabel}
@@ -645,6 +834,7 @@ const year = new Date().getFullYear();
             </li>
           ))
         }
+        <li><a href="/convert/" class="font-semibold text-brand-700 hover:underline">All conversions →</a></li>
       </ul>
     </nav>
     <nav aria-label="Site information">
@@ -652,6 +842,7 @@ const year = new Date().getFullYear();
       <ul class="mt-3 space-y-1.5 text-sm">
         <li><a href="/" class="text-slate-600 hover:text-brand-700 hover:underline">Land Area Converter</a></li>
         <li><a href="/plot-size-calculator/" class="text-slate-600 hover:text-brand-700 hover:underline">Plot Size Calculator</a></li>
+        <li><a href="/guides/" class="text-slate-600 hover:text-brand-700 hover:underline">Guides ({GUIDES.length})</a></li>
         {
           FOOTER_LINKS.map((l) => (
             <li>
@@ -665,7 +856,7 @@ const year = new Date().getFullYear();
     </nav>
   </div>
   <div class="border-t border-slate-100">
-    <p class="mx-auto max-w-6xl px-4 py-4 text-xs text-slate-500">© {year} {SITE.name}. All rights reserved.</p>
+    <p class="mx-auto max-w-6xl px-4 py-4 text-xs text-slate-500">© {year} {SITE.name} · Operated by {SITE.owner}, {SITE.city}. All rights reserved.</p>
   </div>
 </footer>
 ```
@@ -760,6 +951,8 @@ import {
   summaryTargets,
   toInputValue,
   unitHint,
+  unitLabel,
+  unitShort,
   type StandardId,
   type UnitId,
 } from '../lib/units';
@@ -842,7 +1035,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
   <!-- Live result summary -->
   <div class="mt-5 rounded-xl bg-brand-700 px-4 py-4 text-white sm:px-5" aria-live="polite" aria-atomic="true">
     <p class="num text-sm font-medium text-brand-100" data-headline-source>
-      {hasValue ? `${formatNumber(initialValue as number)} ${UNITS[initialUnit].short} at ${std.label}/Marla =` : 'Enter an area to convert'}
+      {hasValue ? `${formatNumber(initialValue as number)} ${unitShort(initialUnit, initialValue as number)} at ${std.label}/Marla =` : 'Enter an area to convert'}
     </p>
     <p class="num mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl" data-headline-result>
       {values ? summaryTargets(values, initialUnit) : '—'}
@@ -915,7 +1108,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
   <div class="mt-8">
     <h3 class="text-lg font-bold text-slate-900">Same area in all 3 Marla standards</h3>
     <p class="num mt-1 text-sm text-slate-600" data-compare-source>
-      {hasValue ? `Input: ${formatNumber(initialValue as number)} ${UNITS[initialUnit].label}` : 'Enter an area above to compare.'}
+      {hasValue ? `Input: ${formatNumber(initialValue as number)} ${unitLabel(initialUnit, initialValue as number)}` : 'Enter an area above to compare.'}
     </p>
     <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
       <table class="data-table">
@@ -978,34 +1171,21 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
     summaryTargets,
     toInputValue,
     unitHint,
+    unitLabel,
+    unitShort,
     type StandardId,
     type UnitId,
   } from '../lib/units';
 
+  /** Async Clipboard API (HTTPS / localhost only, which Cloudflare Pages always provides). */
   async function copyText(text: string): Promise<boolean> {
+    if (!navigator.clipboard?.writeText) return false;
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
+      await navigator.clipboard.writeText(text);
+      return true;
     } catch {
-      /* fall through to legacy path */
+      return false;
     }
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.top = '-1000px';
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try {
-      ok = document.execCommand('copy');
-    } catch {
-      ok = false;
-    }
-    document.body.removeChild(ta);
-    return ok;
   }
 
   function setupConverter(root: HTMLElement) {
@@ -1092,10 +1272,10 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
       });
 
       if (headlineSource) {
-        headlineSource.textContent = `${formatNumber(value)} ${UNITS[unit].short} at ${std.label}/Marla =`;
+        headlineSource.textContent = `${formatNumber(value)} ${unitShort(unit, value)} at ${std.label}/Marla =`;
       }
       if (headlineResult) headlineResult.textContent = summaryTargets(values, unit);
-      if (compareSource) compareSource.textContent = `Input: ${formatNumber(value)} ${UNITS[unit].label}`;
+      if (compareSource) compareSource.textContent = `Input: ${formatNumber(value)} ${unitLabel(unit, value)}`;
 
       const comparison = compareStandards(value, unit);
       cells.forEach((c) => {
@@ -1161,7 +1341,7 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
       const values = convertAll(value, unit, standard);
       const comparison = compareStandards(value, unit);
       const lines: string[] = [];
-      lines.push(`Land area conversion: ${formatNumber(value)} ${UNITS[unit].label}`);
+      lines.push(`Land area conversion: ${formatNumber(value)} ${unitLabel(unit, value)}`);
       lines.push(`Selected standard: 1 Marla = ${std.label} (${std.name})`);
       lines.push('');
       UNIT_ORDER.forEach((u) => lines.push(`${UNITS[u].label}: ${formatNumber(values[u])}`));
@@ -1187,6 +1367,39 @@ const presets: { label: string; value: number; unit: UnitId }[] = [
 
   document.querySelectorAll<HTMLElement>('[data-land-converter]').forEach(setupConverter);
 </script>
+```
+
+## `src/components/LinkGrid.astro`
+
+```astro
+---
+interface Props {
+  links: { href: string; label: string; note?: string }[];
+  columns?: 1 | 2;
+}
+const { links, columns = 2 } = Astro.props;
+---
+
+<ul class:list={['grid gap-3', columns === 2 && 'sm:grid-cols-2']}>
+  {
+    links.map((l) => (
+      <li>
+        <a
+          href={l.href}
+          class="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 transition-colors hover:border-brand-600 hover:bg-brand-50"
+        >
+          <span>
+            <span class="block font-semibold">{l.label}</span>
+            {l.note && <span class="mt-0.5 block text-sm text-slate-600">{l.note}</span>}
+          </span>
+          <span aria-hidden="true" class="shrink-0 text-brand-700">
+            →
+          </span>
+        </a>
+      </li>
+    ))
+  }
+</ul>
 ```
 
 ## `src/components/PlotCalculator.astro`
@@ -1562,10 +1775,11 @@ const outputs: { key: string; label: string; value: string; big?: boolean }[] = 
 /**
  * Static (build-time) HTML reference table for crawlers and no-JS visitors.
  * Rows = values in the `from` unit, columns = `to` unit under each Marla standard.
- * If the result is identical in every standard (e.g. Kanal -> Marla), it shows one
- * result column plus the square-foot size in each standard instead.
+ * If the result is identical in every standard (e.g. Kanal -> Marla, Acre -> sq ft), it shows
+ * one result column plus a standard-dependent unit for each standard instead: square feet when
+ * both units already depend on the Marla size, otherwise Marla.
  */
-import { STANDARDS, UNITS, convert, formatNumber, toSqFt, type UnitId } from '../lib/units';
+import { STANDARDS, UNITS, convert, formatNumber, unitShort, type UnitId } from '../lib/units';
 
 interface Props {
   from: UnitId;
@@ -1581,6 +1795,7 @@ const sameAcross = values.every((v) => {
   const results = STANDARDS.map((s) => convert(v, from, to, s.id));
   return results.every((r) => r === results[0]);
 });
+const extraUnit: UnitId = UNITS[from].standardDependent && UNITS[to].standardDependent ? 'sqft' : 'marla';
 ---
 
 <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -1600,7 +1815,7 @@ const sameAcross = values.every((v) => {
               </th>
               {STANDARDS.map((s) => (
                 <th scope="col" class="text-right">
-                  sq ft <span class="num block text-xs font-medium text-slate-600">@ {s.label}</span>
+                  {UNITS[extraUnit].short} <span class="num block text-xs font-medium text-slate-600">@ {s.label}</span>
                 </th>
               ))}
             </>
@@ -1622,13 +1837,13 @@ const sameAcross = values.every((v) => {
         values.map((v) => (
           <tr class:list={[v === highlight && 'font-semibold']}>
             <th scope="row" class:list={[v === highlight && 'bg-brand-50']}>
-              {formatNumber(v)} {UNITS[from].short}
+              {formatNumber(v)} {unitShort(from, v)}
             </th>
             {sameAcross ? (
               <>
                 <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(convert(v, from, to, '225'))}</td>
                 {STANDARDS.map((s) => (
-                  <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(toSqFt(v, from, s.id))}</td>
+                  <td class:list={['text-right', v === highlight && 'bg-brand-50']}>{formatNumber(convert(v, from, extraUnit, s.id))}</td>
                 ))}
               </>
             ) : (
@@ -1648,40 +1863,65 @@ const sameAcross = values.every((v) => {
 
 ```astro
 ---
-import { CONVERSIONS } from '../data/conversions';
+import { POPULAR_CONVERSIONS, type ConversionPage } from '../data/conversions';
+import { GUIDES } from '../data/guides';
 
 interface Props {
-  exclude?: string;
+  /** Links to show; defaults to the popular conversions */
+  links?: ConversionPage[];
+  heading?: string;
 }
-const { exclude } = Astro.props;
-const links = CONVERSIONS.filter((c) => c.slug !== exclude);
+const { links = POPULAR_CONVERSIONS, heading = 'Popular conversions' } = Astro.props;
 ---
 
-<nav aria-label="Popular conversions" class="rounded-xl border border-slate-200 bg-white p-4">
-  <p class="mb-2 text-sm font-bold text-slate-900">Popular conversions</p>
-  <ul class="space-y-0.5">
-    {
-      links.map((c) => (
-        <li>
-          <a
-            href={`/convert/${c.slug}/`}
-            class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
-          >
-            {c.linkLabel}
-          </a>
-        </li>
-      ))
-    }
-  </ul>
-  <div class="mt-3 border-t border-slate-100 pt-3">
-    <a
-      href="/plot-size-calculator/"
-      class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50"
-    >
-      Plot size calculator →
-    </a>
-  </div>
-</nav>
+<div class="space-y-6">
+  <nav aria-label={heading} class="rounded-xl border border-slate-200 bg-white p-4">
+    <p class="mb-2 text-sm font-bold text-slate-900">{heading}</p>
+    <ul class="space-y-0.5">
+      {
+        links.map((c) => (
+          <li>
+            <a
+              href={`/convert/${c.slug}/`}
+              class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
+            >
+              {c.linkLabel}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="mt-3 space-y-0.5 border-t border-slate-100 pt-3">
+      <a href="/convert/" class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">
+        All conversions →
+      </a>
+      <a
+        href="/plot-size-calculator/"
+        class="flex min-h-10 items-center rounded-lg px-2 text-[15px] font-semibold text-brand-700 hover:bg-brand-50"
+      >
+        Plot size calculator →
+      </a>
+    </div>
+  </nav>
+
+  <nav aria-label="Guides" class="rounded-xl border border-slate-200 bg-white p-4">
+    <p class="mb-2 text-sm font-bold text-slate-900">Land measurement guides</p>
+    <ul class="space-y-0.5">
+      {
+        GUIDES.map((g) => (
+          <li>
+            <a
+              href={`/guides/${g.slug}/`}
+              class="flex min-h-10 items-center rounded-lg px-2 py-1.5 text-[15px] leading-snug font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-800"
+            >
+              {g.navLabel}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</div>
 ```
 
 ## `src/components/StandardSelector.astro`
@@ -1704,7 +1944,7 @@ const { name, selected, legend = 'Marla standard' } = Astro.props;
   <div class="grid grid-cols-3 gap-2">
     {
       STANDARDS.map((s) => (
-        <label class="relative flex min-h-[4.25rem] cursor-pointer flex-col justify-center rounded-xl border-2 border-slate-200 bg-white px-2 py-2 text-center transition-colors hover:border-brand-300 has-checked:border-brand-700 has-checked:bg-brand-50 has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand-600 sm:px-3">
+        <label class="relative flex min-h-[4.25rem] cursor-pointer flex-col justify-center rounded-xl border-2 border-slate-200 bg-white px-1 py-2 text-center transition-colors hover:border-brand-300 has-checked:border-brand-700 has-checked:bg-brand-50 has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-brand-600 sm:px-3">
           <input
             type="radio"
             class="sr-only"
@@ -1713,7 +1953,7 @@ const { name, selected, legend = 'Marla standard' } = Astro.props;
             data-standard={s.id}
             checked={s.id === selected}
           />
-          <span class="num text-[15px] font-bold text-slate-900 sm:text-base">{s.label}</span>
+          <span class="num text-[13px] font-bold tracking-tight whitespace-nowrap text-slate-900 min-[400px]:text-[15px] sm:text-base">{s.label}</span>
           <span class="mt-0.5 text-[11px] leading-tight font-medium text-slate-600 sm:text-xs">{s.name}</span>
         </label>
       ))
@@ -1733,20 +1973,55 @@ export const SITE = {
   tagline: 'Marla, Kanal & Plot Size Calculator for Pakistan',
   description:
     'Free, instant Marla, Kanal, square feet, square yards (gaz), acre and sarsai converter with 225, 250 and 272.25 sq ft Marla standards, plus a plot dimension calculator.',
+  /** Production origin (no trailing slash). Used by astro.config.mjs, canonicals, JSON-LD and the sitemap. */
+  url: 'https://landnaap.app',
   locale: 'en_PK',
   lang: 'en-PK',
   themeColor: '#047857',
-  contactEmail: 'contact@example.com',
-  /** Organisation / owner shown on legal pages. Replace with your own details. */
-  owner: 'LandNaap',
-  city: 'Lahore, Punjab, Pakistan',
-  lastUpdated: 'November 14, 2026',
+  contactEmail: 'contact@landnaap.app',
+  /** Person who operates the site (shown on About, Privacy, Terms, Contact and in the footer). */
+  owner: 'Hamza Bin Maqsood',
+  city: 'Islamabad, Pakistan',
+  /** Courts named in the Terms of Use governing-law clause. */
+  jurisdiction: 'Islamabad',
+  lastUpdated: 'November 16, 2026',
 } as const;
+
+/**
+ * Google AdSense.
+ *
+ * While `client` is empty, ads are completely OFF: no AdSense script is loaded and no ad
+ * containers are rendered, so pages show no empty boxes and reserve no space.
+ *
+ * After approval, fill in your publisher ID and the ad-unit slot IDs from AdSense
+ * (Ads > By ad unit). Each placement with a slot ID then renders a borderless container
+ * with a fixed min-height (90px banner / 250px rectangle) so the ad loads with zero CLS.
+ * A placement left as '' stays hidden.
+ */
+export const ADSENSE: {
+  client: string;
+  slots: Record<AdPlacement, string>;
+} = {
+  client: '', // e.g. 'ca-pub-1234567890123456'
+  slots: {
+    'header-banner': '',
+    'sidebar-rectangle': '',
+    'in-content-1': '',
+  },
+};
+
+export type AdPlacement = 'header-banner' | 'sidebar-rectangle' | 'in-content-1';
+
+export function adsEnabled(placement?: AdPlacement): boolean {
+  if (!ADSENSE.client) return false;
+  return placement ? ADSENSE.slots[placement] !== '' : true;
+}
 
 export const NAV_LINKS = [
   { href: '/', label: 'Area Converter' },
   { href: '/plot-size-calculator/', label: 'Plot Calculator' },
   { href: '/convert/', label: 'Conversions' },
+  { href: '/guides/', label: 'Guides' },
   { href: '/about/', label: 'About' },
 ] as const;
 
@@ -1761,235 +2036,835 @@ export const FOOTER_LINKS = [
 ## `src/data/conversions.ts`
 
 ```ts
+/**
+ * Programmatic conversion pages.
+ *
+ * Each spec only states the value, the units, a category and a hand-written `context`
+ * paragraph (where that size is used). Slug, <title>, meta description, H1, answers,
+ * worked calculations, reference-table rows and internal links are all generated from the
+ * shared conversion engine, so every number on every page matches the calculator exactly.
+ */
 import {
-  STANDARDS,
+  SQM_PER_SQFT,
   UNITS,
-  convert,
   formatNumber,
+  fromSqFt,
+  getStandard,
+  sqftPerUnit,
+  toSqFt,
   type StandardId,
   type UnitId,
-} from '../lib/units';
-import type { FaqItem } from './faqs';
+} from '../lib/units.ts';
+import type { FaqItem } from './faqs.ts';
+
+export type CategoryId = 'marla-sqft' | 'marla-sqyd' | 'marla-sqm' | 'kanal' | 'acre-sqft' | 'sarsai-gaz';
+
+export interface Category {
+  id: CategoryId;
+  title: string;
+  description: string;
+}
+
+export const CATEGORIES: readonly Category[] = [
+  {
+    id: 'marla-sqft',
+    title: 'Marla to Square Feet',
+    description: 'Residential and commercial plot sizes from 2 to 15 Marla in square feet.',
+  },
+  {
+    id: 'marla-sqyd',
+    title: 'Marla to Square Yards (Gaz)',
+    description: 'Compare Punjab Marla plots with Karachi and Sindh square-yard plots.',
+  },
+  {
+    id: 'marla-sqm',
+    title: 'Marla to Square Meters',
+    description: 'Metric equivalents for architects, engineers and overseas buyers.',
+  },
+  {
+    id: 'kanal',
+    title: 'Kanal Conversions',
+    description: 'Kanal to square feet, Marla, square yards, square meters and acres.',
+  },
+  {
+    id: 'acre-sqft',
+    title: 'Acre & Square Feet (Reverse)',
+    description: 'Acres to Kanal and Marla, and square-foot areas back to Marla.',
+  },
+  {
+    id: 'sarsai-gaz',
+    title: 'Sarsai & Gaz Conversions',
+    description: 'Sarsai, single-Marla sizes and square yards back to Marla and Kanal.',
+  },
+];
+
+interface ConversionSpec {
+  value: number;
+  from: UnitId;
+  to: UnitId;
+  category: CategoryId;
+  /** Unique paragraph: where this size / conversion is used in practice. */
+  context: string;
+  defaultStandard?: StandardId;
+}
 
 export interface ConversionPage {
   slug: string;
   value: number;
   from: UnitId;
   to: UnitId;
+  category: CategoryId;
+  context: string;
   defaultStandard: StandardId;
-  /** <title> (keep under ~60 characters) */
   title: string;
-  /** <meta name="description"> (keep under ~160 characters) */
   description: string;
   h1: string;
-  /** Short label used in link lists */
   linkLabel: string;
-  intro: string;
-  /** Page-specific explanatory paragraphs */
-  notes: string[];
-  /** Values (in the `from` unit) for the static reference table */
+  /** Result in the target unit for each Marla standard */
+  results: Record<StandardId, number>;
+  /** True when the result does not depend on the Marla standard */
+  sameAcross: boolean;
   tableValues: number[];
 }
 
-const MARLA_RANGE = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 15, 16, 20];
-const KANAL_RANGE = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 10, 16, 20];
-const ACRE_RANGE = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 10, 12.5, 25];
+/** Display order for "a, b or c" answers: ascending Marla size. */
+export const ANSWER_ORDER: readonly StandardId[] = ['225', '250', '272.25'];
 
-export const CONVERSIONS: ConversionPage[] = [
+const SPECS: ConversionSpec[] = [
+  /* ---------------- Marla to Square Feet ---------------- */
   {
-    slug: '3-marla-to-sq-ft',
+    value: 2,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      'Two Marla is the smallest size still traded as a building plot. It turns up in the older, dense neighbourhoods of Lahore, Rawalpindi and Gujranwala, where it is built upwards as a narrow two- or three-storey house, and as small shop plots in society commercial areas.',
+  },
+  {
     value: 3,
     from: 'marla',
     to: 'sqft',
-    defaultStandard: '225',
-    title: '3 Marla to Sq Ft: 675, 750 or 816.75 Square Feet',
-    description:
-      '3 Marla = 675 sq ft (society, 225), 750 sq ft (250) or 816.75 sq ft (revenue, 272.25). Instant 3 Marla converter with square yards, meters and Kanal.',
-    h1: '3 Marla to Square Feet',
-    linkLabel: '3 Marla to sq ft',
-    intro:
-      'A 3 Marla plot is the smallest common residential size in Pakistani housing schemes and is popular for compact double-storey houses. Its area in square feet depends on which Marla standard the scheme uses.',
-    notes: [
-      'In most housing societies a 3 Marla plot measures 675 sq ft, which is 75 square yards. Developers using a 250 sq ft Marla sell the same "3 Marla" as 750 sq ft.',
-      'If the land is recorded by the Patwari on the revenue standard, 3 Marla equals 816.75 sq ft (90.75 square yards), about 21% larger than a society 3 Marla plot.',
-    ],
-    tableValues: MARLA_RANGE,
+    category: 'marla-sqft',
+    context:
+      'Three Marla plots are the backbone of affordable urban housing in Punjab. You will find them in low-cost schemes and the compact blocks of private societies around Lahore and Faisalabad, usually built as double-storey houses where the covered area matters more than the plot itself.',
   },
   {
-    slug: '5-marla-to-sq-ft',
+    value: 3.5,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      '3.5 Marla is a developer-created category marketed to first-time buyers who want a little more than 3 Marla without the price of 5 Marla. Because it is not a traditional size, check whether the scheme defines its Marla as 225 or 250 sq ft before you compare price per Marla.',
+  },
+  {
+    value: 4,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      'Four Marla is best known as a commercial plot size: DHA Lahore and many large societies sell 4 Marla commercial plots on their boulevards and markets. In smaller Punjab towns it is also a common compact house plot.',
+  },
+  {
     value: 5,
     from: 'marla',
     to: 'sqft',
-    defaultStandard: '225',
-    title: '5 Marla to Sq Ft: 1,125, 1,250 or 1,361.25 Square Feet',
-    description:
-      '5 Marla = 1,125 sq ft in DHA/Bahria (225), 1,250 sq ft (250) or 1,361.25 sq ft on revenue land (272.25). Live 5 Marla to sq ft converter with tables.',
-    h1: '5 Marla to Square Feet',
-    linkLabel: '5 Marla to sq ft',
-    intro:
-      'Five Marla is the most traded plot size in Pakistan. In DHA, Bahria Town and LDA schemes it is usually laid out as 25 ft × 45 ft, but the exact square footage depends on the Marla standard.',
-    notes: [
-      'On the 225 sq ft society standard, 5 Marla = 1,125 sq ft = 125 square yards. That is exactly a 25 × 45 ft plot.',
-      'On the 272.25 sq ft revenue standard, 5 Marla = 1,361.25 sq ft, for example 27.5 ft × 49.5 ft. Comparing a society 5 Marla with a revenue 5 Marla without converting first can hide a 236.25 sq ft difference.',
-    ],
-    tableValues: MARLA_RANGE,
+    category: 'marla-sqft',
+    context:
+      'Five Marla is the most traded residential plot size in Punjab and Khyber Pakhtunkhwa. DHA Lahore and Bahria Town Lahore lay it out as 25 × 45 ft, and it is the entry-level house plot in most LDA-approved schemes.',
   },
   {
-    slug: '7-marla-to-sq-ft',
+    value: 6,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      'Six Marla rarely appears in modern society master plans, but it is common in older town layouts and cooperative housing schemes. It also arises when a 12 Marla plot is divided between two owners or heirs.',
+  },
+  {
     value: 7,
     from: 'marla',
     to: 'sqft',
-    defaultStandard: '225',
-    title: '7 Marla to Sq Ft: 1,575, 1,750 or 1,905.75 Square Feet',
-    description:
-      '7 Marla = 1,575 sq ft (225 standard), 1,750 sq ft (250) or 1,905.75 sq ft (272.25 revenue). Convert 7 Marla to sq ft, square yards, Kanal and acres instantly.',
-    h1: '7 Marla to Square Feet',
-    linkLabel: '7 Marla to sq ft',
-    intro:
-      'A 7 Marla plot sits between the popular 5 and 10 Marla sizes and is common in newer blocks of housing societies, often laid out around 30 ft frontage.',
-    notes: [
-      'At 225 sq ft per Marla, 7 Marla = 1,575 sq ft (175 square yards), for example 30 ft × 52.5 ft.',
-      'At 272.25 sq ft per Marla, 7 Marla = 1,905.75 sq ft. At 250 sq ft per Marla it is 1,750 sq ft.',
-    ],
-    tableValues: MARLA_RANGE,
+    category: 'marla-sqft',
+    context:
+      'Seven Marla plots are offered in designated blocks of some newer society phases, typically with a 30 ft frontage. Families choose them as a step up from 5 Marla when they want a larger ground floor without paying for 10 Marla.',
   },
   {
-    slug: '10-marla-to-sq-ft',
+    value: 8,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      'Eight Marla is a standard category in both residential and commercial planning. DHA Lahore and Bahria Town Lahore sell 8 Marla plots, and on the 225 sq ft standard it matches the familiar 30 × 60 ft layout used in many schemes.',
+  },
+  {
     value: 10,
     from: 'marla',
     to: 'sqft',
-    defaultStandard: '225',
-    title: '10 Marla to Sq Ft: 2,250, 2,500 or 2,722.5 Square Feet',
-    description:
-      '10 Marla = 2,250 sq ft (225, societies), 2,500 sq ft (250) or 2,722.5 sq ft (272.25 revenue). See why 35×65 plots are sold as 10 Marla. Instant converter.',
-    h1: '10 Marla to Square Feet',
-    linkLabel: '10 Marla to sq ft',
-    intro:
-      'Ten Marla is half a Kanal and a standard family-house size. In housing societies it is commonly marketed as a 35 ft × 65 ft plot.',
-    notes: [
-      'At 225 sq ft per Marla, 10 Marla = 2,250 sq ft (250 square yards). A 35 × 65 ft plot is 2,275 sq ft, about 10.11 Marla, which is why it is sold as 10 Marla.',
-      'At 272.25 sq ft per Marla, 10 Marla = 2,722.5 sq ft (302.5 square yards), for example 45 ft × 60.5 ft.',
-    ],
-    tableValues: MARLA_RANGE,
+    category: 'marla-sqft',
+    context:
+      'Ten Marla, or half a Kanal, is the classic family-house plot in Pakistani housing societies. DHA Lahore and Bahria Town Lahore generally cut it as 35 × 65 ft, which is slightly more than 10 Marla on the 225 sq ft standard.',
   },
   {
-    slug: '1-kanal-to-sq-ft',
-    value: 1,
-    from: 'kanal',
+    value: 12,
+    from: 'marla',
     to: 'sqft',
-    defaultStandard: '225',
-    title: '1 Kanal to Sq Ft: 4,500, 5,000 or 5,445 Square Feet',
-    description:
-      '1 Kanal = 4,500 sq ft (225 standard, DHA/Bahria), 5,000 sq ft (250) or 5,445 sq ft (272.25 revenue). Convert Kanal to square feet, yards and meters.',
-    h1: '1 Kanal to Square Feet',
-    linkLabel: '1 Kanal to sq ft',
-    intro:
-      'One Kanal is 20 Marla. Because the size of a Marla differs between housing societies and revenue records, the square footage of a Kanal differs too.',
-    notes: [
-      'A society 1 Kanal plot is 4,500 sq ft (500 square yards), typically 50 ft × 90 ft.',
-      'A revenue Kanal is 5,445 sq ft (605 square yards), which is 1/8 of an acre. On the 250 sq ft developer standard, 1 Kanal is 5,000 sq ft.',
-    ],
-    tableValues: KANAL_RANGE,
+    category: 'marla-sqft',
+    context:
+      'Twelve Marla plots appear in older Lahore and Rawalpindi societies and in some newer schemes; DHA Multan, for example, offers a 12 Marla residential category. Buyers pick it when they want a lawn and wider frontage but not a full Kanal.',
   },
   {
-    slug: '1-kanal-to-marla',
+    value: 15,
+    from: 'marla',
+    to: 'sqft',
+    category: 'marla-sqft',
+    context:
+      'Fifteen Marla, three quarters of a Kanal, is uncommon in new master plans. It is usually found in older town layouts or where part of a 1 Kanal plot has been sold off, so the actual dimensions should always be checked on site.',
+  },
+
+  /* ---------------- Marla to Square Yards ---------------- */
+  {
     value: 1,
-    from: 'kanal',
-    to: 'marla',
-    defaultStandard: '225',
-    title: '1 Kanal to Marla: 1 Kanal = 20 Marla (All Standards)',
-    description:
-      '1 Kanal = 20 Marla in every standard. See what that means in sq ft: 4,500 (225), 5,000 (250) or 5,445 (272.25). Kanal to Marla converter and table.',
-    h1: '1 Kanal to Marla',
-    linkLabel: '1 Kanal to Marla',
-    intro:
-      'The Kanal-to-Marla ratio never changes: 1 Kanal is always 20 Marla, and half a Kanal is 10 Marla. Only the size of each Marla changes between standards.',
-    notes: [
-      'So 2 Kanal = 40 Marla and 4 Kanal = 80 Marla, whatever standard is used. When converting Kanal to Marla, you do not need to choose a standard.',
-      'You do need the standard when converting to square feet: 20 Marla is 4,500 sq ft in a housing society, 5,000 sq ft on a 250 sq ft scheme and 5,445 sq ft on revenue land.',
-    ],
-    tableValues: KANAL_RANGE,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'This is the key figure for mental conversion: a society Marla is exactly 25 square yards and a revenue Marla is 30.25 square yards. Multiply any Marla size by that number to get its area in gaz.',
   },
   {
-    slug: '5-marla-to-sq-yards',
+    value: 2,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Small shops, kiosks and commercial units are frequently advertised in square yards, especially by Karachi-based investors. Converting 2 Marla to gaz lets you compare those listings with Marla-based commercial plots in Punjab.',
+  },
+  {
+    value: 3,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Developers marketing to overseas Pakistanis often quote both Marla and square yards. A 3 Marla society plot is a round 75 gaz, which helps when comparing it with the small square-yard plots sold in Sindh.',
+  },
+  {
+    value: 4,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'On the society standard a 4 Marla plot is exactly 100 square yards, a useful benchmark against the 120 gaz plots that are among the most common residential sizes in Karachi.',
+  },
+  {
     value: 5,
     from: 'marla',
     to: 'sqyd',
-    defaultStandard: '225',
-    title: '5 Marla to Square Yards (Gaz): 125, 138.89 or 151.25',
-    description:
-      '5 Marla = 125 sq yd (225 standard), 138.89 sq yd (250) or 151.25 sq yd (272.25 revenue). Convert Marla to gaz for Karachi-style plot comparisons.',
-    h1: '5 Marla to Square Yards (Gaz)',
-    linkLabel: '5 Marla to sq yards',
-    intro:
-      'Square yards (gaz) are used for plots in Karachi and across Sindh, while Punjab and KP use Marla. Converting 5 Marla to square yards lets you compare plots between the two systems.',
-    notes: [
-      'One square yard is 9 sq ft, so square yards = Marla × Marla size ÷ 9. On the society standard a Marla is exactly 25 square yards, which makes 5 Marla = 125 sq yd.',
-      'On the revenue standard a Marla is 30.25 square yards, so 5 Marla = 151.25 sq yd. A Karachi 120 sq yd plot is therefore slightly smaller than a 5 Marla society plot.',
-    ],
-    tableValues: MARLA_RANGE,
+    category: 'marla-sqyd',
+    context:
+      'Buyers moving between Lahore and Karachi most often need this conversion. A 5 Marla society plot is 125 gaz, so it is slightly larger than Karachi’s popular 120 square-yard plot.',
   },
   {
-    slug: '1-acre-to-kanal',
+    value: 6,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Six Marla is 150 square yards in a housing society. It sits between Karachi’s 120 and 200 gaz categories, which is handy when a family is comparing a Punjab house with one in Sindh.',
+  },
+  {
+    value: 7,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Seven Marla equals 175 square yards on the society standard. Agents in Islamabad and Rawalpindi sometimes quote square yards alongside Marla, so this figure helps reconcile the two listing styles.',
+  },
+  {
+    value: 8,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'An 8 Marla society plot is exactly 200 square yards, the same area as a 200 gaz plot in Karachi. That makes 8 Marla one of the easiest sizes to compare across provinces.',
+  },
+  {
+    value: 10,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Ten Marla equals 250 square yards in a housing society, a little more than Karachi’s common 240 gaz plot. On revenue land the same 10 Marla is over 300 square yards.',
+  },
+  {
+    value: 12,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Twelve Marla is 300 square yards on the society standard. Investors use this conversion when weighing a 12 Marla plot in Punjab against 300 gaz plots in Karachi schemes.',
+  },
+  {
+    value: 15,
+    from: 'marla',
+    to: 'sqyd',
+    category: 'marla-sqyd',
+    context:
+      'Fifteen Marla works out to 375 square yards in a society, just under the 400 gaz bungalow plots found in established Karachi neighbourhoods.',
+  },
+
+  /* ---------------- Marla to Square Meters ---------------- */
+  {
+    value: 3,
+    from: 'marla',
+    to: 'sqm',
+    category: 'marla-sqm',
+    context:
+      'Architects and structural engineers often model small houses in metric units. Converting a 3 Marla plot to square meters makes it easy to compare with apartment and townhouse sizes quoted abroad.',
+  },
+  {
+    value: 5,
+    from: 'marla',
+    to: 'sqm',
+    category: 'marla-sqm',
+    context:
+      'Overseas Pakistanis in Europe, the Gulf and North America usually think in square meters. A 5 Marla society plot is about 104.5 sq m, a size they can picture against homes where they live.',
+  },
+  {
+    value: 7,
+    from: 'marla',
+    to: 'sqm',
+    category: 'marla-sqm',
+    context:
+      'Imported design software, energy models and international building references work in metric. Converting 7 Marla to square meters avoids rounding errors when transferring a plot outline into those tools.',
+  },
+  {
+    value: 10,
+    from: 'marla',
+    to: 'sqm',
+    category: 'marla-sqm',
+    context:
+      'Development finance, valuation reports for foreign lenders and some government forms ask for land area in square meters. A 10 Marla society plot is just over 209 sq m.',
+  },
+
+  /* ---------------- Kanal ---------------- */
+  {
+    value: 1,
+    from: 'kanal',
+    to: 'sqft',
+    category: 'kanal',
+    context:
+      'One Kanal is the benchmark premium plot in Pakistani societies. In DHA Lahore and Bahria Town Lahore it is usually 50 × 90 ft (4,500 sq ft), while the same Kanal in revenue records is 5,445 sq ft.',
+  },
+  {
+    value: 1,
+    from: 'kanal',
+    to: 'marla',
+    category: 'kanal',
+    context:
+      'The Kanal-to-Marla ratio is fixed at 20 everywhere, so this conversion never needs a standard. What changes between a society Kanal and a revenue Kanal is the size of each Marla, not the count.',
+  },
+  {
+    value: 1,
+    from: 'kanal',
+    to: 'sqyd',
+    category: 'kanal',
+    context:
+      'A society Kanal is exactly 500 square yards, the same area as the 500 gaz plots that are a staple of DHA Karachi. That one-to-one match makes Lahore and Karachi premium plots easy to compare.',
+  },
+  {
+    value: 1,
+    from: 'kanal',
+    to: 'sqm',
+    category: 'kanal',
+    context:
+      'Landscape architects, solar installers and international clients often need Kanal plots in square meters. One society Kanal is about 418 sq m, and a revenue Kanal is about 506 sq m.',
+  },
+  {
+    value: 1,
+    from: 'kanal',
+    to: 'acre',
+    category: 'kanal',
+    context:
+      'On revenue land a Kanal is exactly one eighth of an acre, which is how fard and jamabandi records divide farmland. On the society standard a Kanal is a slightly smaller fraction of an acre.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 2,
+    from: 'kanal',
+    to: 'sqft',
+    category: 'kanal',
+    context:
+      'Two Kanal is the largest standard residential plot in many DHA Lahore phases. Depending on the phase it is laid out as 75 × 120 ft or 100 × 90 ft, both 9,000 sq ft on the 225 sq ft standard.',
+  },
+  {
+    value: 2,
+    from: 'kanal',
+    to: 'marla',
+    category: 'kanal',
+    context:
+      'Some listings, especially for older properties and amalgamated plots, describe a 2 Kanal house as 40 Marla. The count is the same in every standard; only the square footage differs.',
+  },
+  {
+    value: 2,
+    from: 'kanal',
+    to: 'sqyd',
+    category: 'kanal',
+    context:
+      'Two society Kanal equal exactly 1,000 square yards, the same as the 1,000 gaz bungalow plots in DHA Karachi. It is the conversion to use when comparing the top residential categories of both cities.',
+  },
+  {
+    value: 4,
+    from: 'kanal',
+    to: 'acre',
+    category: 'kanal',
+    context:
+      'Four Kanal is a typical minimum size in farmhouse schemes on the outskirts of Lahore and Islamabad. On the revenue standard it is exactly half an acre.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 8,
+    from: 'kanal',
+    to: 'acre',
+    category: 'kanal',
+    context:
+      'Eight Kanal is one full acre in revenue records, so agricultural land, orchards and larger farmhouses are often sold in 8 Kanal units. The fard will show it as 8 Kanal 0 Marla.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 10,
+    from: 'kanal',
+    to: 'acre',
+    category: 'kanal',
+    context:
+      'Ten Kanal parcels are common for poultry sheds, nurseries and small orchards near cities. On revenue land that is one and a quarter acres.',
+    defaultStandard: '272.25',
+  },
+
+  /* ---------------- Acre & Square Feet (reverse) ---------------- */
+  {
     value: 1,
     from: 'acre',
     to: 'kanal',
+    category: 'acre-sqft',
+    context:
+      'Agricultural land in Punjab is recorded in acres, Kanal and Marla on the revenue standard, where an acre divides exactly into 8 Kanal. Developers converting farmland into society plots instead count in 225 sq ft Marla.',
     defaultStandard: '272.25',
-    title: '1 Acre to Kanal: 8 Kanal (Revenue) or 9.68 Kanal (225)',
-    description:
-      '1 Acre = 8 Kanal = 160 Marla on the 272.25 revenue standard, 9.68 Kanal at 225 sq ft and 8.712 Kanal at 250 sq ft. Acre to Kanal converter and table.',
-    h1: '1 Acre to Kanal',
-    linkLabel: '1 Acre to Kanal',
-    intro:
-      'An acre is a fixed 43,560 sq ft. Agricultural land in Punjab is recorded in acres, Kanal and Marla on the revenue standard, where an acre divides evenly into 8 Kanal.',
-    notes: [
-      'On the 272.25 sq ft revenue standard, 1 Acre = 8 Kanal = 160 Marla = 1,440 Sarsai. This is the figure used in fard and jamabandi records.',
-      'If the same acre is divided into society-standard plots (225 sq ft Marla), it holds 9.68 Kanal or 193.6 Marla before roads and amenities are deducted.',
-    ],
-    tableValues: ACRE_RANGE,
   },
+  {
+    value: 1,
+    from: 'acre',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      'Land developers estimate how many plots an acre can yield by converting it to Marla. On the revenue standard an acre is 160 Marla; on the society standard it is 193.6 Marla before roads, parks and amenities are deducted.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 1,
+    from: 'acre',
+    to: 'sqft',
+    category: 'acre-sqft',
+    context:
+      'The acre is a fixed international unit of 43,560 sq ft, so its square footage never depends on the Marla standard. Only its value in Marla and Kanal changes.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 1,
+    from: 'acre',
+    to: 'sqyd',
+    category: 'acre-sqft',
+    context:
+      'Large land parcels in Sindh and Balochistan are often discussed in acres while plots inside them are sold in square yards. One acre is exactly 4,840 square yards.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 2,
+    from: 'acre',
+    to: 'kanal',
+    category: 'acre-sqft',
+    context:
+      'Two-acre parcels are a common size for farmhouses, small dairy farms and wedding venues on city edges. In revenue records two acres are 16 Kanal.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 5,
+    from: 'acre',
+    to: 'kanal',
+    category: 'acre-sqft',
+    context:
+      'Five acres is a typical holding for small farmers in Punjab and a common unit for land purchased for warehouses or small housing schemes. On the revenue standard it is 40 Kanal.',
+    defaultStandard: '272.25',
+  },
+  {
+    value: 1000,
+    from: 'sqft',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      'Apartments, offices and builder floors are sold by square feet. Converting 1,000 sq ft to Marla shows how a flat compares with a plot: it is under 5 Marla on every standard.',
+  },
+  {
+    value: 1125,
+    from: 'sqft',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      '1,125 sq ft is exactly a 25 × 45 ft plot, the standard 5 Marla cut in DHA Lahore and Bahria Town Lahore. If someone quotes 1,125 sq ft, they almost certainly mean a society 5 Marla.',
+  },
+  {
+    value: 2250,
+    from: 'sqft',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      '2,250 sq ft is precisely 10 Marla on the 225 sq ft standard. Building plans and approval forms record plot area in square feet, so this is the figure you will see on a 10 Marla house map.',
+  },
+  {
+    value: 4500,
+    from: 'sqft',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      '4,500 sq ft is a 50 × 90 ft plot, the standard society Kanal. On revenue land the same 4,500 sq ft is only about 16.5 Marla, which is why fard and society figures for the "same" Kanal differ.',
+  },
+  {
+    value: 5445,
+    from: 'sqft',
+    to: 'marla',
+    category: 'acre-sqft',
+    context:
+      '5,445 sq ft is the exact area of one revenue Kanal (20 × 272.25 sq ft). Measured with a society Marla the same land is 24.2 Marla, a difference that matters when land is bought from farmers and resold as plots.',
+  },
+
+  /* ---------------- Sarsai & Gaz ---------------- */
+  {
+    value: 1,
+    from: 'marla',
+    to: 'sarsai',
+    category: 'sarsai-gaz',
+    context:
+      'Sarsai is the smallest unit in Punjab revenue records, used for slivers of land left over after Kanal and Marla. One Marla is always 9 Sarsai; a revenue Sarsai is one square karam of 5.5 × 5.5 ft.',
+  },
+  {
+    value: 1,
+    from: 'marla',
+    to: 'sqft',
+    category: 'sarsai-gaz',
+    context:
+      'Every land calculation in Pakistan starts here. One Marla is 225 sq ft in housing societies, 272.25 sq ft in revenue records and 250 sq ft in some developer schemes, so always confirm which one a seller means.',
+  },
+  {
+    value: 100,
+    from: 'sqyd',
+    to: 'marla',
+    category: 'sarsai-gaz',
+    context:
+      '100 square yards is a common small-plot size in Sindh and in some Islamabad and Rawalpindi listings. On the society standard it is exactly 4 Marla.',
+  },
+  {
+    value: 120,
+    from: 'sqyd',
+    to: 'marla',
+    category: 'sarsai-gaz',
+    context:
+      'The 120 gaz plot is one of the most common residential sizes in Karachi. Converted to Punjab units it is just under 5 Marla on the society standard and about 4 Marla on the revenue standard.',
+  },
+  {
+    value: 240,
+    from: 'sqyd',
+    to: 'marla',
+    category: 'sarsai-gaz',
+    context:
+      'A 240 gaz plot is a standard family-house size in Karachi. In Punjab terms it is slightly under 10 Marla on the society standard.',
+  },
+  {
+    value: 250,
+    from: 'sqyd',
+    to: 'marla',
+    category: 'sarsai-gaz',
+    context:
+      '250 square yards is exactly 10 Marla on the 225 sq ft society standard, so it maps neatly onto the half-Kanal plots of Lahore and Islamabad societies.',
+  },
+  {
+    value: 400,
+    from: 'sqyd',
+    to: 'marla',
+    category: 'sarsai-gaz',
+    context:
+      'The 400 gaz bungalow plot is a familiar size in established Karachi neighbourhoods. On the society standard it is 16 Marla, between a 12 Marla plot and a full Kanal.',
+  },
+  {
+    value: 500,
+    from: 'sqyd',
+    to: 'kanal',
+    category: 'sarsai-gaz',
+    context:
+      '500 square yards is the signature plot size of DHA Karachi and equals exactly 1 Kanal on the society standard. Measured against a revenue Kanal of 605 square yards, it is only about 0.83 Kanal.',
+  },
+  {
+    value: 1000,
+    from: 'sqyd',
+    to: 'kanal',
+    category: 'sarsai-gaz',
+    context:
+      'The 1,000 gaz plot is the top residential category in DHA Karachi. On the society standard it is exactly 2 Kanal, matching the largest plots in DHA Lahore.',
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Naming                                                               */
+/* ------------------------------------------------------------------ */
+
+const SLUG_UNIT: Record<UnitId, string> = {
+  marla: 'marla',
+  kanal: 'kanal',
+  sqft: 'sq-ft',
+  sqyd: 'sq-yards',
+  sqm: 'sq-meters',
+  acre: 'acre',
+  sarsai: 'sarsai',
+};
+
+/** Short unit name for titles and link labels. */
+export function shortName(u: UnitId, n: number): string {
+  const one = n === 1;
+  switch (u) {
+    case 'marla':
+      return 'Marla';
+    case 'kanal':
+      return 'Kanal';
+    case 'sarsai':
+      return 'Sarsai';
+    case 'sqft':
+      return 'Sq Ft';
+    case 'sqyd':
+      return one ? 'Sq Yard' : 'Sq Yards';
+    case 'sqm':
+      return one ? 'Sq Meter' : 'Sq Meters';
+    case 'acre':
+      return one ? 'Acre' : 'Acres';
+  }
+}
+
+/** Full target-unit name for H1 headings. */
+function longName(u: UnitId): string {
+  switch (u) {
+    case 'sqft':
+      return 'Square Feet';
+    case 'sqyd':
+      return 'Square Yards (Gaz)';
+    case 'sqm':
+      return 'Square Meters';
+    case 'acre':
+      return 'Acres';
+    default:
+      return UNITS[u].label;
+  }
+}
+
+function valueSlug(v: number): string {
+  return String(v).replace('.', '-');
+}
+
+const f2 = (n: number) => formatNumber(n, 2);
+
+const TABLE_RANGES: Record<UnitId, number[]> = {
+  marla: [1, 2, 3, 3.5, 4, 5, 6, 7, 8, 10, 12, 15, 20],
+  kanal: [0.5, 1, 1.5, 2, 3, 4, 5, 8, 10, 16, 20],
+  acre: [0.25, 0.5, 1, 2, 2.5, 5, 10, 25],
+  sqft: [500, 675, 1000, 1125, 1250, 1361.25, 1500, 1800, 2250, 2722.5, 3000, 4500, 5445, 9000],
+  sqyd: [50, 75, 80, 100, 120, 125, 150, 200, 240, 250, 300, 400, 500, 600, 1000],
+  sqm: [50, 100, 150, 200, 250, 500, 1000],
+  sarsai: [1, 3, 9, 18, 45, 90, 180],
+};
+
+function build(spec: ConversionSpec): ConversionPage {
+  const { value: v, from, to } = spec;
+  const results = {} as Record<StandardId, number>;
+  for (const s of ANSWER_ORDER) results[s] = fromSqFt(toSqFt(v, from, s), to, s);
+  const sameAcross = ANSWER_ORDER.every((s) => results[s] === results['225']);
+  const bothIndependent = !UNITS[from].standardDependent && !UNITS[to].standardDependent;
+
+  const fromShort = shortName(from, v);
+  const toShort = shortName(to, 2);
+  const lead = `${formatNumber(v)} ${fromShort} to ${toShort}`;
+
+  let title: string;
+  let description: string;
+  if (sameAcross) {
+    const r = results['225'];
+    title = `${lead}: ${formatNumber(v)} ${fromShort} = ${f2(r)} ${shortName(to, r)}${bothIndependent ? '' : ' (All Standards)'}`;
+    if (bothIndependent) {
+      const m = ANSWER_ORDER.map((s) => f2(fromSqFt(toSqFt(v, from, s), 'marla', s)));
+      description = `${formatNumber(v)} ${fromShort} = ${f2(r)} ${shortName(to, r)} exactly. In Marla that is ${m[0]} (225 sq ft), ${m[1]} (250) or ${m[2]} (272.25 revenue). Live converter & tables.`;
+    } else {
+      const sq = ANSWER_ORDER.map((s) => f2(toSqFt(v, from, s)));
+      description = `${formatNumber(v)} ${fromShort} = ${f2(r)} ${shortName(to, r)} in every Marla standard. In square feet that is ${sq[0]}, ${sq[1]} or ${sq[2]} (225, 250 or 272.25 sq ft Marla). Live converter & tables.`;
+    }
+  } else {
+    title = `${lead}: ${f2(results['225'])}, ${f2(results['250'])} or ${f2(results['272.25'])} ${toShort}`;
+    description = `${formatNumber(v)} ${fromShort} = ${f2(results['225'])} ${toShort} in housing societies (225 sq ft Marla), ${f2(results['272.25'])} on revenue land (272.25) and ${f2(results['250'])} at 250 sq ft. Live converter & tables.`;
+  }
+
+  const sourceName = from === 'sqyd' ? `${shortName(from, v)} (Gaz)` : fromShort;
+  const range = TABLE_RANGES[from].includes(v) ? TABLE_RANGES[from] : [...TABLE_RANGES[from], v].sort((a, b) => a - b);
+
+  return {
+    slug: `${valueSlug(v)}-${SLUG_UNIT[from]}-to-${SLUG_UNIT[to]}`,
+    value: v,
+    from,
+    to,
+    category: spec.category,
+    context: spec.context,
+    defaultStandard: spec.defaultStandard ?? '225',
+    title,
+    description,
+    h1: `${formatNumber(v)} ${sourceName} to ${longName(to)}`,
+    linkLabel: lead,
+    results,
+    sameAcross,
+    tableValues: range,
+  };
+}
+
+export const CONVERSIONS: ConversionPage[] = SPECS.map(build);
+
+/** Shown in the footer, sidebar fallback, home page and 404. */
+export const POPULAR_SLUGS: readonly string[] = [
+  '5-marla-to-sq-ft',
+  '10-marla-to-sq-ft',
+  '1-kanal-to-sq-ft',
+  '1-kanal-to-marla',
+  '3-marla-to-sq-ft',
+  '5-marla-to-sq-yards',
+  '120-sq-yards-to-marla',
+  '1-acre-to-kanal',
 ];
 
 export function getConversion(slug: string): ConversionPage | undefined {
   return CONVERSIONS.find((c) => c.slug === slug);
 }
 
-/** Page-specific FAQs generated from exact math, so answers always match the calculator. */
-export function conversionFaqs(c: ConversionPage): FaqItem[] {
-  const fromLabel = UNITS[c.from].label;
-  const toLabel = UNITS[c.to].label;
-  const perStd = STANDARDS.map(
-    (s) => `${formatNumber(convert(c.value, c.from, c.to, s.id))} ${UNITS[c.to].short} on the ${s.label} (${s.name}) standard`,
-  );
-  const fromShort = UNITS[c.from].short;
-  return [
-    {
-      q: `How much is ${formatNumber(c.value)} ${fromShort} in ${toLabel}?`,
-      a: `${formatNumber(c.value)} ${fromShort} equals ${perStd.join(', ')}.`,
-    },
-    {
-      q: `What is the formula to convert ${fromLabel} to ${toLabel}?`,
-      a: formulaText(c.from, c.to),
-    },
-  ];
+export const POPULAR_CONVERSIONS: ConversionPage[] = POPULAR_SLUGS.map((s) => {
+  const c = getConversion(s);
+  if (!c) throw new Error(`Popular conversion not found: ${s}`);
+  return c;
+});
+
+export function conversionsInCategory(id: CategoryId): ConversionPage[] {
+  return CONVERSIONS.filter((c) => c.category === id);
 }
 
+/**
+ * Internal links for a conversion page, in priority order:
+ * 1. the next smaller and larger size of the same conversion,
+ * 2. the same size converted to other units,
+ * 3. the reverse conversion of the result (e.g. 5 Marla -> 1,125 sq ft -> Marla),
+ * 4. two further sizes of the same conversion, then the rest of the category.
+ */
+export function relatedConversions(c: ConversionPage, max = 8): ConversionPage[] {
+  const out: ConversionPage[] = [];
+  const add = (x: ConversionPage | undefined) => {
+    if (x && x.slug !== c.slug && !out.includes(x)) out.push(x);
+  };
+  const samePair = CONVERSIONS.filter((x) => x.from === c.from && x.to === c.to).sort((a, b) => a.value - b.value);
+  const i = samePair.indexOf(c);
+  add(samePair[i - 1]);
+  add(samePair[i + 1]);
+  CONVERSIONS.filter((x) => x.from === c.from && x.value === c.value).forEach(add);
+  for (const s of ANSWER_ORDER) {
+    const r = c.results[s];
+    CONVERSIONS.filter((x) => x.from === c.to && Math.abs(x.value - r) < 1e-9).forEach(add);
+  }
+  add(samePair[i - 2]);
+  add(samePair[i + 2]);
+  conversionsInCategory(c.category).forEach(add);
+  return out.slice(0, max);
+}
+
+/* ------------------------------------------------------------------ */
+/* Formulas, worked calculations and FAQs                               */
+/* ------------------------------------------------------------------ */
+
 export function formulaText(from: UnitId, to: UnitId): string {
-  const pair = `${from}->${to}`;
-  switch (pair) {
+  switch (`${from}->${to}`) {
     case 'marla->sqft':
       return 'Square Feet = Marla × Marla size. Use 225 for housing societies, 250 for custom developer schemes or 272.25 for revenue land.';
     case 'marla->sqyd':
       return 'Square Yards = Marla × Marla size ÷ 9. One Marla is 25 sq yd at 225 sq ft, 27.78 sq yd at 250 sq ft and 30.25 sq yd at 272.25 sq ft.';
+    case 'marla->sqm':
+      return 'Square Meters = Marla × Marla size × 0.09290304. One Marla is 20.90 sq m at 225 sq ft, 23.23 sq m at 250 sq ft and 25.29 sq m at 272.25 sq ft.';
+    case 'marla->sarsai':
+      return 'Sarsai = Marla × 9. This ratio is the same in every Marla standard.';
     case 'kanal->sqft':
       return 'Square Feet = Kanal × 20 × Marla size. One Kanal is 4,500 sq ft at 225, 5,000 sq ft at 250 and 5,445 sq ft at 272.25.';
     case 'kanal->marla':
       return 'Marla = Kanal × 20. This ratio is the same in every Marla standard.';
+    case 'kanal->sqyd':
+      return 'Square Yards = Kanal × 20 × Marla size ÷ 9. One Kanal is 500 sq yd at 225, 555.56 sq yd at 250 and 605 sq yd at 272.25.';
+    case 'kanal->sqm':
+      return 'Square Meters = Kanal × 20 × Marla size × 0.09290304. One Kanal is 418.06 sq m at 225, 464.52 sq m at 250 and 505.86 sq m at 272.25.';
+    case 'kanal->acre':
+      return 'Acres = Kanal × 20 × Marla size ÷ 43,560. On the 272.25 revenue standard this simplifies to Acres = Kanal ÷ 8.';
     case 'acre->kanal':
       return 'Kanal = Acres × 43,560 ÷ (20 × Marla size). On the 272.25 revenue standard this simplifies to Kanal = Acres × 8.';
+    case 'acre->marla':
+      return 'Marla = Acres × 43,560 ÷ Marla size. On the 272.25 revenue standard this simplifies to Marla = Acres × 160.';
+    case 'acre->sqft':
+      return 'Square Feet = Acres × 43,560. The acre is a fixed unit, so the Marla standard does not change this result.';
+    case 'acre->sqyd':
+      return 'Square Yards = Acres × 4,840 (43,560 sq ft ÷ 9). The Marla standard does not change this result.';
+    case 'sqft->marla':
+      return 'Marla = Square Feet ÷ Marla size. Divide by 225 for housing societies, 250 for developer schemes or 272.25 for revenue land.';
+    case 'sqyd->marla':
+      return 'Marla = Square Yards × 9 ÷ Marla size. On the 225 standard this simplifies to Marla = Square Yards ÷ 25; on the revenue standard, ÷ 30.25.';
+    case 'sqyd->kanal':
+      return 'Kanal = Square Yards × 9 ÷ (20 × Marla size). On the 225 standard this simplifies to Kanal = Square Yards ÷ 500; on the revenue standard, ÷ 605.';
     default:
       return `${UNITS[to].label} = ${UNITS[from].label} converted to square feet, then divided by the size of one ${UNITS[to].label} in square feet.`;
   }
+}
+
+export interface WorkedStep {
+  standard: StandardId | null;
+  text: string;
+}
+
+/** Step-by-step arithmetic for each standard (collapsed to one line when standards agree). */
+export function workedSteps(c: ConversionPage): WorkedStep[] {
+  const stepFor = (s: StandardId): string => {
+    const m = getStandard(s).sqftPerMarla;
+    const sqft = toSqFt(c.value, c.from, s);
+    const parts: string[] = [];
+    if (c.from !== 'sqft') {
+      parts.push(`${formatNumber(c.value)} ${shortName(c.from, c.value)} × ${formatNumber(sqftPerUnit(c.from, m))} sq ft = ${formatNumber(sqft)} sq ft`);
+    }
+    if (c.to === 'sqm') {
+      parts.push(`${formatNumber(sqft)} sq ft × ${SQM_PER_SQFT} = ${formatNumber(c.results[s])} sq m`);
+    } else if (c.to !== 'sqft') {
+      parts.push(
+        `${formatNumber(sqft)} sq ft ÷ ${formatNumber(sqftPerUnit(c.to, m))} sq ft = ${formatNumber(c.results[s])} ${shortName(c.to, c.results[s])}`,
+      );
+    }
+    return parts.join('; then ');
+  };
+  const steps = ANSWER_ORDER.map((s) => ({ standard: s, text: stepFor(s) }));
+  if (steps.every((x) => x.text === steps[0].text)) return [{ standard: null, text: steps[0].text }];
+  return steps;
+}
+
+/** Page-specific FAQs generated from exact math, so answers always match the calculator. */
+export function conversionFaqs(c: ConversionPage): FaqItem[] {
+  const fromShort = shortName(c.from, c.value);
+  const answer = c.sameAcross
+    ? `${formatNumber(c.value)} ${fromShort} equals ${formatNumber(c.results['225'])} ${shortName(c.to, c.results['225'])} in every Marla standard.`
+    : `${formatNumber(c.value)} ${fromShort} equals ${ANSWER_ORDER.map((s) => {
+        const st = getStandard(s);
+        return `${formatNumber(c.results[s])} ${shortName(c.to, c.results[s])} on the ${st.label} (${st.name}) standard`;
+      }).join(', ')}.`;
+  return [
+    { q: `How much is ${formatNumber(c.value)} ${fromShort} in ${UNITS[c.to].label}?`, a: answer },
+    { q: `What is the formula to convert ${UNITS[c.from].label} to ${UNITS[c.to].label}?`, a: formulaText(c.from, c.to) },
+  ];
 }
 ```
 
@@ -2061,6 +2936,217 @@ export const PLOT_FAQS: FaqItem[] = [
 ];
 ```
 
+## `src/data/guides.ts`
+
+```ts
+import type { FaqItem } from './faqs.ts';
+import type { CategoryId } from './conversions.ts';
+
+export interface Guide {
+  slug: string;
+  /** <title> */
+  title: string;
+  h1: string;
+  /** Short label for navigation lists */
+  navLabel: string;
+  description: string;
+  /** One-line teaser for cards and llms.txt */
+  summary: string;
+  datePublished: string;
+  dateModified: string;
+  faqs: FaqItem[];
+  /** Conversion slugs linked from the guide */
+  relatedConversions: string[];
+  /** Conversion categories whose pages link to this guide */
+  categories: CategoryId[];
+}
+
+const PUBLISHED = '2026-11-16';
+
+export const GUIDES: Guide[] = [
+  {
+    slug: 'marla-size-pakistan-225-vs-272-25',
+    navLabel: '225 vs 272.25 sq ft Marla',
+    title: 'Marla Size in Pakistan: 225 vs 272.25 vs 250 Sq Ft',
+    h1: 'Why Marla Size Differs: 225 vs 272.25 vs 250 Sq Ft',
+    description:
+      'Why a Marla is 225 sq ft in housing societies, 272.25 sq ft in revenue records (fard) and 250 sq ft in some schemes, with worked examples and how to check yours.',
+    summary: 'The karam behind each Marla standard, where each one is used and how to avoid paying for land you do not get.',
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['marla-sqft', 'sarsai-gaz'],
+    relatedConversions: ['1-marla-to-sq-ft', '5-marla-to-sq-ft', '10-marla-to-sq-ft', '1-kanal-to-sq-ft', '5445-sq-ft-to-marla'],
+    faqs: [
+      {
+        q: 'Is a Marla 225 or 272.25 square feet?',
+        a: 'Both are in use. Housing societies such as DHA, Bahria Town and LDA-approved schemes use 225 sq ft. Revenue records maintained by the Patwari and the Punjab Land Records Authority use 272.25 sq ft. Some private developers use 250 sq ft. The correct figure is the one defined in your documents.',
+      },
+      {
+        q: 'Where does the 272.25 sq ft Marla come from?',
+        a: 'It is built from the karam, a revenue length of 5.5 ft. One square karam (Sarsai) is 30.25 sq ft and nine Sarsai make a Marla: 9 × 30.25 = 272.25 sq ft. This Marla is exactly 1/160 of an acre.',
+      },
+      {
+        q: 'Where does the 225 sq ft Marla come from?',
+        a: 'The same nine-square structure applied to a 5 ft karam gives 9 × 25 = 225 sq ft, which is exactly 25 square yards. Its round numbers made it the convenient choice for urban plot layouts in housing societies.',
+      },
+      {
+        q: 'How much bigger is a revenue Marla than a society Marla?',
+        a: 'A revenue Marla is 47.25 sq ft (21%) larger. Across a 5 Marla plot the difference is 236.25 sq ft; across a Kanal it is 945 sq ft.',
+      },
+    ],
+  },
+  {
+    slug: 'dha-bahria-town-lda-plot-dimensions',
+    navLabel: 'DHA, Bahria & LDA plot dimensions',
+    title: 'DHA, Bahria Town & LDA Plot Dimensions (25×45 to 2 Kanal)',
+    h1: 'Standard Plot Dimensions in DHA, Bahria Town and LDA Schemes',
+    description:
+      'Typical frontage and depth of 5, 8 and 10 Marla, 1 and 2 Kanal plots in DHA, Bahria Town and LDA schemes: 25×45, 30×60, 35×65, 50×90 ft, with exact Marla checks.',
+    summary: 'Typical plot cuts (25×45, 30×60, 35×65, 50×90 ft), why some are slightly over size, and what to check before buying.',
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['marla-sqft', 'kanal'],
+    relatedConversions: ['5-marla-to-sq-ft', '8-marla-to-sq-ft', '10-marla-to-sq-ft', '1-kanal-to-sq-ft', '2-kanal-to-sq-ft', '1125-sq-ft-to-marla'],
+    faqs: [
+      {
+        q: 'What are the dimensions of a 5 Marla plot in DHA Lahore?',
+        a: 'A 5 Marla plot in DHA Lahore and Bahria Town Lahore is generally 25 × 45 ft, which is 1,125 sq ft or exactly 5 Marla at 225 sq ft per Marla.',
+      },
+      {
+        q: 'Why is a 35 × 65 plot called 10 Marla?',
+        a: '35 × 65 ft is 2,275 sq ft, which is 10.11 Marla at 225 sq ft per Marla. Societies round it to the nearest standard category, so it is sold as 10 Marla.',
+      },
+      {
+        q: 'What size is a 2 Kanal plot in DHA Lahore?',
+        a: 'Depending on the phase, 2 Kanal plots are commonly laid out as 75 × 120 ft or 100 × 90 ft. Both are 9,000 sq ft, which is exactly 40 Marla or 2 Kanal on the 225 sq ft standard.',
+      },
+      {
+        q: 'Do corner plots have the same area?',
+        a: 'Not always. Corner plots can have a truncated corner (chamfer) or extra land along the side road, so their area may differ from the standard. Check the plot map and possession letter.',
+      },
+    ],
+  },
+  {
+    slug: 'karachi-sq-yards-gaz-vs-punjab-marla',
+    navLabel: 'Karachi gaz to Marla & Kanal',
+    title: 'Karachi Sq Yards (Gaz) to Marla & Kanal: 120 to 1000 Gaz',
+    h1: 'Converting Karachi Square Yards (Gaz) to Punjab Marla and Kanal',
+    description:
+      'Convert 120, 240, 400, 500 and 1000 square yard Karachi plots to Marla and Kanal on the 225 and 272.25 sq ft standards, with formulas and a full table.',
+    summary: 'How 120, 240, 500 and 1,000 gaz plots map onto Marla and Kanal, and the shortcuts that make it mental arithmetic.',
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['marla-sqyd', 'sarsai-gaz'],
+    relatedConversions: ['120-sq-yards-to-marla', '240-sq-yards-to-marla', '400-sq-yards-to-marla', '500-sq-yards-to-kanal', '1000-sq-yards-to-kanal', '5-marla-to-sq-yards'],
+    faqs: [
+      {
+        q: 'How many Marla is a 120 square yard plot?',
+        a: '120 square yards is 1,080 sq ft. That is 4.8 Marla on the 225 sq ft society standard, 4.32 Marla at 250 sq ft and 3.97 Marla on the 272.25 sq ft revenue standard.',
+      },
+      {
+        q: 'Is 500 square yards equal to 1 Kanal?',
+        a: 'Yes, on the 225 sq ft society standard. 500 sq yd × 9 = 4,500 sq ft = 20 Marla = 1 Kanal. On the revenue standard a Kanal is 605 sq yd, so 500 sq yd is about 0.83 Kanal.',
+      },
+      {
+        q: 'What is the quick way to convert gaz to Marla?',
+        a: 'Divide square yards by 25 for the society standard, or by 30.25 for the revenue standard. For Kanal, divide by 500 (society) or 605 (revenue).',
+      },
+    ],
+  },
+  {
+    slug: 'fard-intiqal-land-units-kanal-marla-sarsai',
+    navLabel: 'Fard units: Kanal, Marla, Sarsai',
+    title: 'Fard & Intiqal Land Units: Kanal, Marla, Sarsai, Karam',
+    h1: 'Understanding Revenue Records: How Kanal, Marla, Sarsai and Karam Work Together',
+    description:
+      'How Punjab revenue records (fard, jamabandi, intiqal) measure land: karam, Sarsai, Marla, Kanal and acre, how areas are written, and how to convert them.',
+    summary: 'The karam-based unit chain used by the Patwari, how areas appear on a fard, and how to turn them into square feet.',
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['kanal', 'acre-sqft', 'sarsai-gaz'],
+    relatedConversions: ['1-marla-to-sarsai', '1-kanal-to-sq-ft', '1-acre-to-kanal', '1-acre-to-marla', '8-kanal-to-acre', '5445-sq-ft-to-marla'],
+    faqs: [
+      {
+        q: 'Which Marla does a fard use?',
+        a: 'Revenue records in Punjab use the 272.25 sq ft Marla, built from a 5.5 ft karam: 1 Sarsai = 30.25 sq ft, 9 Sarsai = 1 Marla, 20 Marla = 1 Kanal (5,445 sq ft) and 8 Kanal = 1 acre.',
+      },
+      {
+        q: 'What is the difference between a fard and an intiqal?',
+        a: 'A fard is an extract of the record of rights showing who owns which share of land. An intiqal (mutation) is the entry that records a change of ownership, for example after a sale, gift or inheritance.',
+      },
+      {
+        q: 'How do I convert "2 Kanal 7 Marla 4 Sarsai" to square feet?',
+        a: 'Convert everything to Sarsai first: 2 × 180 + 7 × 9 + 4 = 427 Sarsai. Multiply by 30.25: 427 × 30.25 = 12,916.75 sq ft.',
+      },
+    ],
+  },
+  {
+    slug: 'covered-area-vs-plot-area-construction',
+    navLabel: 'Plot area vs covered area & FAR',
+    title: 'Plot Area vs Covered Area & FAR: House Construction Basics',
+    h1: 'Plot Area vs Covered Area and FAR Basics for Construction Estimates',
+    description:
+      'The difference between plot area, ground coverage, covered area and FAR, how setbacks reduce what you can build, and how to estimate construction quantities.',
+    summary: 'Why a 5 Marla plot is not 5 Marla of house: setbacks, ground coverage, FAR and how builders quote covered area.',
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['marla-sqm', 'marla-sqft'],
+    relatedConversions: ['5-marla-to-sq-ft', '10-marla-to-sq-ft', '1-kanal-to-sq-ft', '5-marla-to-sq-meters', '10-marla-to-sq-meters'],
+    faqs: [
+      {
+        q: 'What is covered area?',
+        a: 'Covered area is the total built-up floor area of a building, measured to the outside of the walls, added up for every floor (including basement and mumty if they count under your bylaws). It is the figure builders use to quote construction cost per square foot.',
+      },
+      {
+        q: 'What is FAR?',
+        a: 'Floor Area Ratio is the total covered area allowed divided by the plot area. A FAR of 1.5 on a 2,250 sq ft plot means up to 3,375 sq ft of covered area across all floors, subject to height and setback rules.',
+      },
+      {
+        q: 'Can I build on my whole plot?',
+        a: 'Usually not. Residential bylaws require open space at the front (and often at the rear and sides). The exact setbacks, coverage limits and FAR come from your development authority or society bylaws, so check them before finalising a design.',
+      },
+    ],
+  },
+  {
+    slug: 'how-to-measure-irregular-plot-area',
+    navLabel: 'Measuring irregular plots',
+    title: "Irregular Plot Area: Heron's Formula & Triangulation Guide",
+    h1: "How to Calculate the Area of an Irregular Plot (Heron's Formula and Triangulation)",
+    description:
+      "Measure a four-sided or irregular plot accurately: split it into triangles, apply Heron's formula, check with coordinates, and convert the result to Marla.",
+    summary: "A step-by-step method for non-rectangular plots using a diagonal and Heron's formula, with a worked example.",
+    datePublished: PUBLISHED,
+    dateModified: PUBLISHED,
+    categories: ['acre-sqft'],
+    relatedConversions: ['1000-sq-ft-to-marla', '2250-sq-ft-to-marla', '4500-sq-ft-to-marla', '1-marla-to-sq-ft'],
+    faqs: [
+      {
+        q: "What is Heron's formula?",
+        a: "Heron's formula gives the area of a triangle from its three sides. With sides a, b and c, first find s = (a + b + c) ÷ 2, then Area = √(s × (s − a) × (s − b) × (s − c)).",
+      },
+      {
+        q: 'Why do I need a diagonal for a four-sided plot?',
+        a: 'Four side lengths alone do not fix the shape of a quadrilateral: the same sides can enclose different areas. Measuring one diagonal splits the plot into two triangles whose areas are fully determined.',
+      },
+      {
+        q: 'Is averaging opposite sides accurate?',
+        a: 'Multiplying the average of the two widths by the average of the two lengths is exact only for rectangles. For skewed plots it always overstates the area, sometimes by several percent, so use triangulation for anything that is not square-cornered.',
+      },
+    ],
+  },
+];
+
+export function getGuide(slug: string): Guide {
+  const g = GUIDES.find((x) => x.slug === slug);
+  if (!g) throw new Error(`Guide not found: ${slug}`);
+  return g;
+}
+
+export function guidesForCategory(id: CategoryId): Guide[] {
+  return GUIDES.filter((g) => g.categories.includes(id));
+}
+```
+
 ## `src/layouts/BaseLayout.astro`
 
 ```astro
@@ -2069,7 +3155,7 @@ import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import AdSlot from '../components/AdSlot.astro';
-import { SITE } from '../config/site';
+import { ADSENSE, SITE, adsEnabled } from '../config/site';
 import { serializeJsonLd } from '../lib/schema';
 
 interface Props {
@@ -2077,7 +3163,7 @@ interface Props {
   description: string;
   /** JSON-LD objects injected into <head> */
   schema?: Record<string, unknown>[];
-  /** Show the right-hand sidebar with a 250px ad slot (tool pages) */
+  /** Show the right-hand sidebar (tool pages). Holds a 250px ad slot once AdSense is configured. */
   sidebar?: boolean;
   noindex?: boolean;
   ogType?: 'website' | 'article';
@@ -2085,15 +3171,15 @@ interface Props {
 
 const { title, description, schema = [], sidebar = false, noindex = false, ogType = 'website' } = Astro.props;
 
-const site = Astro.site ?? new URL('https://www.example.com');
+const site = Astro.site ?? new URL(SITE.url);
 const canonical = new URL(Astro.url.pathname, site).href;
 const ogImage = new URL('/og-image.png', site).href;
 const fullTitle = title.includes(SITE.name) ? title : `${title} | ${SITE.name}`;
 
-const adsenseHeadComment = `<!-- ===== GOOGLE ADSENSE (site-wide loader) =====
-  After AdSense approval, paste the loader here, e.g.:
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
-  ===== END ADSENSE LOADER ===== -->`;
+// AdSense loader is only emitted once a publisher ID is set in src/config/site.ts
+const adsenseSrc = adsEnabled()
+  ? `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE.client}`
+  : null;
 ---
 
 <!doctype html>
@@ -2128,7 +3214,13 @@ const adsenseHeadComment = `<!-- ===== GOOGLE ADSENSE (site-wide loader) =====
 
     {schema.map((s) => <script type="application/ld+json" set:html={serializeJsonLd(s)} />)}
 
-    <Fragment set:html={adsenseHeadComment} />
+    {
+      adsenseSrc ? (
+        <script is:inline async src={adsenseSrc} crossorigin="anonymous" />
+      ) : (
+        <Fragment set:html="<!-- Google AdSense loader: added automatically once ADSENSE.client is set in src/config/site.ts -->" />
+      )
+    }
     <slot name="head" />
   </head>
   <body class="flex min-h-screen flex-col">
@@ -2139,9 +3231,15 @@ const adsenseHeadComment = `<!-- ===== GOOGLE ADSENSE (site-wide loader) =====
     >
     <Header />
 
-    <div class="mx-auto w-full max-w-6xl px-4 pt-4">
-      <AdSlot variant="banner" name="header-banner" />
-    </div>
+    {
+      adsEnabled('header-banner') ? (
+        <div class="mx-auto w-full max-w-6xl px-4 pt-4">
+          <AdSlot variant="banner" name="header-banner" />
+        </div>
+      ) : (
+        <AdSlot variant="banner" name="header-banner" />
+      )
+    }
 
     <div
       class:list={[
@@ -2167,6 +3265,133 @@ const adsenseHeadComment = `<!-- ===== GOOGLE ADSENSE (site-wide loader) =====
     <Footer />
   </body>
 </html>
+```
+
+## `src/layouts/GuideLayout.astro`
+
+```astro
+---
+/**
+ * Long-form guide layout.
+ * Renders the guide body once at build time to derive the table of contents (from <h2 id>),
+ * the word count and the reading time, then injects Article + FAQPage + BreadcrumbList JSON-LD.
+ */
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import Faq from '../components/Faq.astro';
+import LinkGrid from '../components/LinkGrid.astro';
+import SidebarLinks from '../components/SidebarLinks.astro';
+import AdSlot from '../components/AdSlot.astro';
+import { SITE } from '../config/site';
+import { GUIDES, type Guide } from '../data/guides';
+import { getConversion } from '../data/conversions';
+import { articleSchema, breadcrumbSchema, faqPageSchema } from '../lib/schema';
+
+interface Props {
+  guide: Guide;
+}
+
+const { guide } = Astro.props;
+const site = Astro.site ?? new URL(SITE.url);
+const url = new URL(`/guides/${guide.slug}/`, site).href;
+
+const body = await Astro.slots.render('default');
+const plain = body.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
+const wordCount = plain.split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+const minutes = Math.max(1, Math.round(wordCount / 200));
+const toc = [...body.matchAll(/<h2[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => ({
+  id: m[1],
+  text: m[2].replace(/<[^>]+>/g, '').trim(),
+}));
+
+const fmtDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+const related = guide.relatedConversions.map((slug) => {
+  const c = getConversion(slug);
+  if (!c) throw new Error(`Guide ${guide.slug} links to unknown conversion ${slug}`);
+  return c;
+});
+const otherGuides = GUIDES.filter((g) => g.slug !== guide.slug);
+
+const schema = [
+  articleSchema({
+    headline: guide.h1,
+    description: guide.description,
+    url,
+    datePublished: guide.datePublished,
+    dateModified: guide.dateModified,
+    wordCount,
+    siteUrl: site.href,
+  }),
+  faqPageSchema(guide.faqs),
+  breadcrumbSchema([
+    { name: 'Home', url: new URL('/', site).href },
+    { name: 'Guides', url: new URL('/guides/', site).href },
+    { name: guide.navLabel, url },
+  ]),
+];
+---
+
+<BaseLayout title={guide.title} description={guide.description} schema={schema} sidebar ogType="article">
+  <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides/' }, { name: guide.navLabel }]} />
+
+  <article>
+    <header>
+      <h1 class="text-3xl leading-tight font-extrabold tracking-tight text-slate-900 sm:text-4xl">{guide.h1}</h1>
+      <p class="mt-3 text-sm text-slate-600">
+        By <a href="/about/" class="font-semibold text-slate-800 hover:underline">{SITE.owner}</a>
+        · <time datetime={guide.dateModified}>Updated {fmtDate(guide.dateModified)}</time>
+        · {minutes} min read
+      </p>
+      <p class="mt-4 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{guide.description}</p>
+    </header>
+
+    {
+      toc.length > 1 && (
+        <nav aria-label="On this page" class="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <p class="text-sm font-bold text-slate-900">On this page</p>
+          <ol class="mt-2 list-decimal space-y-1 pl-5 text-[15px] text-slate-700 marker:text-slate-400">
+            {toc.map((t) => (
+              <li>
+                <a href={`#${t.id}`} class="hover:text-brand-700 hover:underline">
+                  {t.text}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
+    <div class="prose-content mt-2 max-w-3xl" data-guide-body set:html={body} />
+
+    <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
+
+    <section class="mt-10" aria-labelledby="tools-heading">
+      <h2 id="tools-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Convert it yourself</h2>
+      <LinkGrid links={related.map((c) => ({ href: `/convert/${c.slug}/`, label: c.h1 }))} />
+      <p class="mt-3 text-sm text-slate-600">
+        Or open the <a href="/" class="font-semibold text-brand-700 underline">land area converter</a> and the
+        <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>.
+      </p>
+    </section>
+
+    <Faq items={guide.faqs} heading="Questions about this guide" id="guide-faq" />
+
+    <section class="mt-12" aria-labelledby="more-guides-heading">
+      <h2 id="more-guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">More guides</h2>
+      <LinkGrid links={otherGuides.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
+    </section>
+
+    <p class="mt-8 text-sm text-slate-600">
+      This guide is general information, not legal or engineering advice. Confirm measurements and rules with your society,
+      development authority, the revenue department or a licensed professional.
+    </p>
+  </article>
+
+  <SidebarLinks slot="sidebar" links={related} heading="Conversions in this guide" />
+</BaseLayout>
 ```
 
 ## `src/lib/schema.ts`
@@ -2242,6 +3467,41 @@ export function websiteSchema(url: string): JsonLd {
     url,
     description: SITE.description,
     inLanguage: SITE.lang,
+  };
+}
+
+export function articleSchema(opts: {
+  headline: string;
+  description: string;
+  url: string;
+  datePublished: string;
+  dateModified: string;
+  wordCount: number;
+  siteUrl: string;
+}): JsonLd {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: opts.headline,
+    description: opts.description,
+    url: opts.url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': opts.url },
+    datePublished: opts.datePublished,
+    dateModified: opts.dateModified,
+    inLanguage: SITE.lang,
+    wordCount: opts.wordCount,
+    image: new URL('/og-image.png', opts.siteUrl).href,
+    author: {
+      '@type': 'Person',
+      name: SITE.owner,
+      url: new URL('/about/', opts.siteUrl).href,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE.name,
+      url: opts.siteUrl,
+      logo: { '@type': 'ImageObject', url: new URL('/og-image.png', opts.siteUrl).href },
+    },
   };
 }
 
@@ -2535,6 +3795,29 @@ export function parseInput(raw: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** Full unit label with correct singular/plural, e.g. "1 Acre" vs "2 Acres". */
+export function unitLabel(unit: UnitId, n: number): string {
+  if (n !== 1) return UNITS[unit].label;
+  switch (unit) {
+    case 'acre':
+      return 'Acre';
+    case 'sqft':
+      return 'Square Foot';
+    case 'sqyd':
+      return 'Square Yard (Gaz)';
+    case 'sqm':
+      return 'Square Meter';
+    default:
+      return UNITS[unit].label;
+  }
+}
+
+/** Short unit with correct plural for acres, e.g. "0.5 Acres", "1 Acre". */
+export function unitShort(unit: UnitId, n: number): string {
+  if (unit === 'acre') return n === 1 ? 'Acre' : 'Acres';
+  return UNITS[unit].short;
+}
+
 /** "5 Marla", "1 Kanal", "1,125 sq ft" */
 export function formatWithUnit(n: number, unit: UnitId): string {
   return `${formatNumber(n)} ${UNITS[unit].short}`;
@@ -2589,7 +3872,7 @@ export const FORMULAS: readonly string[] = [
 ```astro
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { CONVERSIONS } from '../data/conversions';
+import { POPULAR_CONVERSIONS } from '../data/conversions';
 ---
 
 <BaseLayout title="Page not found" description="The page you were looking for does not exist." noindex>
@@ -2603,7 +3886,7 @@ import { CONVERSIONS } from '../data/conversions';
     </div>
     <ul class="mt-8 flex flex-wrap justify-center gap-2">
       {
-        CONVERSIONS.map((c) => (
+        POPULAR_CONVERSIONS.map((c) => (
           <li>
             <a href={`/convert/${c.slug}/`} class="inline-flex min-h-10 items-center rounded-full border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:border-brand-600 hover:text-brand-800">
               {c.linkLabel}
@@ -2636,6 +3919,10 @@ import { SITE } from '../config/site';
       <p>
         {SITE.name} ("naap" means measurement in Urdu) is a free set of land measurement tools for buyers, sellers, agents,
         overseas Pakistanis and anyone dealing with property in Pakistan and South Asia.
+      </p>
+      <p>
+        {SITE.name} is an independent project operated by <strong>{SITE.owner}</strong> from {SITE.city}. It is not affiliated
+        with any housing society, development authority or government department.
       </p>
 
       <h2>Why we built it</h2>
@@ -2676,7 +3963,7 @@ import { SITE } from '../config/site';
 
       <h2>Get in touch</h2>
       <p>
-        Found an error or want a new conversion added? Visit the <a href="/contact/">contact page</a>. We read every message.
+        Found an error or want a new conversion added? Email <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> or use the <a href="/contact/">contact page</a>.
       </p>
     </article>
   </div>
@@ -2703,16 +3990,20 @@ const inputClass =
       <p class="mt-3 leading-7 text-slate-700">
         Spotted a wrong figure, want another conversion page, or have a business enquiry? Email us at
         <a href={`mailto:${SITE.contactEmail}`} class="font-semibold text-brand-700 underline">{SITE.contactEmail}</a>
-        or use the form below. We usually reply within 2–3 working days.
+        or use the form below.
       </p>
 
-      <dl class="mt-6 grid gap-4 sm:grid-cols-2">
+      <dl class="mt-6 grid gap-4 sm:grid-cols-3">
         <div class="rounded-xl bg-slate-50 p-4">
           <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Email</dt>
-          <dd class="mt-1 font-semibold text-slate-900">{SITE.contactEmail}</dd>
+          <dd class="mt-1 font-semibold break-all text-slate-900">{SITE.contactEmail}</dd>
         </div>
         <div class="rounded-xl bg-slate-50 p-4">
-          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Based in</dt>
+          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Operated by</dt>
+          <dd class="mt-1 font-semibold text-slate-900">{SITE.owner}</dd>
+        </div>
+        <div class="rounded-xl bg-slate-50 p-4">
+          <dt class="text-xs font-semibold tracking-wide text-slate-600 uppercase">Location</dt>
           <dd class="mt-1 font-semibold text-slate-900">{SITE.city}</dd>
         </div>
       </dl>
@@ -2790,11 +4081,23 @@ import Faq from '../../components/Faq.astro';
 import ReferenceTable from '../../components/ReferenceTable.astro';
 import BreakdownTable from '../../components/BreakdownTable.astro';
 import SidebarLinks from '../../components/SidebarLinks.astro';
+import LinkGrid from '../../components/LinkGrid.astro';
 import { SITE } from '../../config/site';
-import { CONVERSIONS, conversionFaqs, formulaText, type ConversionPage } from '../../data/conversions';
+import {
+  ANSWER_ORDER,
+  CATEGORIES,
+  CONVERSIONS,
+  conversionFaqs,
+  formulaText,
+  relatedConversions,
+  shortName,
+  workedSteps,
+  type ConversionPage,
+} from '../../data/conversions';
 import { STANDARD_FAQS } from '../../data/faqs';
+import { guidesForCategory } from '../../data/guides';
 import { breadcrumbSchema, faqPageSchema, softwareApplicationSchema } from '../../lib/schema';
-import { STANDARDS, UNITS, convert, formatNumber, getStandard } from '../../lib/units';
+import { UNITS, formatNumber, getStandard, unitLabel } from '../../lib/units';
 
 export const getStaticPaths = (() => {
   return CONVERSIONS.map((c) => ({ params: { slug: c.slug }, props: { conversion: c } }));
@@ -2805,18 +4108,20 @@ interface Props {
 }
 
 const { conversion: c } = Astro.props;
-const site = Astro.site ?? new URL('https://www.example.com');
+const site = Astro.site ?? new URL(SITE.url);
 const url = new URL(`/convert/${c.slug}/`, site).href;
 
 const fromU = UNITS[c.from];
 const toU = UNITS[c.to];
 const defaultStd = getStandard(c.defaultStandard);
-const primary = convert(c.value, c.from, c.to, c.defaultStandard);
-const answers = STANDARDS.map((s) => ({ std: s, result: convert(c.value, c.from, c.to, s.id) }));
-const allSame = answers.every((a) => a.result === answers[0].result);
+const primary = c.results[c.defaultStandard];
+const answers = ANSWER_ORDER.map((id) => ({ std: getStandard(id), result: c.results[id] }));
+const steps = workedSteps(c);
+const category = CATEGORIES.find((x) => x.id === c.category);
 
 const faqs = [...conversionFaqs(c), ...STANDARD_FAQS];
-const related = CONVERSIONS.filter((x) => x.slug !== c.slug);
+const related = relatedConversions(c, 8);
+const guides = guidesForCategory(c.category);
 
 const schema = [
   softwareApplicationSchema({
@@ -2824,8 +4129,8 @@ const schema = [
     url,
     description: c.description,
     extraFeatures: [
-      `${formatNumber(c.value)} ${fromU.short} = ${answers
-        .map((a) => `${formatNumber(a.result)} ${toU.short} (${a.std.label} standard)`)
+      `${formatNumber(c.value)} ${shortName(c.from, c.value)} = ${answers
+        .map((a) => `${formatNumber(a.result)} ${shortName(c.to, a.result)} (${a.std.label} standard)`)
         .join('; ')}`,
       formulaText(c.from, c.to),
     ],
@@ -2843,26 +4148,26 @@ const schema = [
   <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Conversions', href: '/convert/' }, { name: c.h1 }]} />
 
   <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{c.h1}</h1>
-  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{c.intro}</p>
+  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">{c.context}</p>
 
   <!-- Quick answer (static, crawlable) -->
   <section class="mt-6 rounded-2xl border-2 border-brand-700 bg-brand-50 p-4 sm:p-5" aria-labelledby="answer-heading">
     <h2 id="answer-heading" class="text-sm font-bold tracking-wide text-brand-800 uppercase">Quick answer</h2>
     <p class="num mt-1 text-2xl font-extrabold text-slate-900 sm:text-3xl">
       {formatNumber(c.value)}
-      {fromU.short} = {formatNumber(primary)}
-      {toU.short}
+      {shortName(c.from, c.value)} = {formatNumber(primary)}
+      {shortName(c.to, primary)}
     </p>
     <p class="mt-1 text-sm text-slate-700">
-      {allSame ? 'Same in every Marla standard.' : `On the ${defaultStd.label} (${defaultStd.name}) standard.`}
+      {c.sameAcross ? 'Same in every Marla standard.' : `On the ${defaultStd.label} (${defaultStd.name}) standard.`}
     </p>
     {
-      !allSame && (
+      !c.sameAcross && (
         <ul class="mt-4 grid gap-2 sm:grid-cols-3">
           {answers.map((a) => (
-            <li class="rounded-xl border border-brand-200 bg-white px-3 py-2.5">
+            <li class:list={['rounded-xl border bg-white px-3 py-2.5', a.std.id === c.defaultStandard ? 'border-brand-700' : 'border-brand-200']}>
               <span class="num block text-lg font-bold text-slate-900">
-                {formatNumber(a.result)} {toU.short}
+                {formatNumber(a.result)} {shortName(c.to, a.result)}
               </span>
               <span class="num block text-xs font-medium text-slate-600">
                 {a.std.label} · {a.std.name}
@@ -2884,17 +4189,39 @@ const schema = [
     />
   </div>
 
-  <div class="mt-8">
-    <AdSlot variant="rectangle" name="in-content-1" />
-  </div>
+  <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
 
   <section class="prose-content mt-4" aria-labelledby="how-heading">
     <h2 id="how-heading">How to convert {fromU.label} to {toU.label}</h2>
     <p><strong>Formula:</strong> {formulaText(c.from, c.to)}</p>
-    {c.notes.map((n) => <p>{n}</p>)}
+    <h3>Worked calculation</h3>
+    <ul>
+      {
+        steps.map((s) => (
+          <li class="num">
+            {s.standard ? <strong>{getStandard(s.standard).label}: </strong> : <strong>All standards: </strong>}
+            {s.text}
+          </li>
+        ))
+      }
+    </ul>
   </section>
 
-  <section class="mt-8" aria-labelledby="table-heading">
+  <section class="mt-8" aria-labelledby="related-heading">
+    <h2 id="related-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Nearby sizes & related conversions</h2>
+    <LinkGrid links={related.map((r) => ({ href: `/convert/${r.slug}/`, label: r.h1 }))} />
+    {
+      category && (
+        <p class="mt-3 text-sm text-slate-600">
+          Browse all <a href="/convert/" class="font-semibold text-brand-700 underline">{category.title}</a> and other
+          conversions, or use the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a> if
+          you have dimensions.
+        </p>
+      )
+    }
+  </section>
+
+  <section class="mt-10" aria-labelledby="table-heading">
     <h2 id="table-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
       {fromU.label} to {toU.label} reference table
     </h2>
@@ -2904,39 +4231,29 @@ const schema = [
   <section class="mt-10" aria-labelledby="breakdown-heading">
     <h2 id="breakdown-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
       {formatNumber(c.value)}
-      {fromU.label} in all units
+      {unitLabel(c.from, c.value)} in all units
     </h2>
     <BreakdownTable value={c.value} unit={c.from} />
   </section>
 
   <Faq items={faqs} heading={`${c.h1}: FAQ`} />
 
-  <section class="mt-12" aria-labelledby="related-heading">
-    <h2 id="related-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Related conversions</h2>
-    <ul class="grid gap-3 sm:grid-cols-2">
-      {
-        related.map((r) => (
-          <li>
-            <a
-              href={`/convert/${r.slug}/`}
-              class="flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-semibold text-slate-900 hover:border-brand-600 hover:bg-brand-50"
-            >
-              {r.h1}
-              <span aria-hidden="true" class="text-brand-700">
-                →
-              </span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
-    <p class="mt-4 text-sm text-slate-600">
-      Have plot dimensions instead? Try the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>.
-      Results by {SITE.name} are for guidance; confirm with official records.
-    </p>
-  </section>
+  {
+    guides.length > 0 && (
+      <section class="mt-12" aria-labelledby="guides-heading">
+        <h2 id="guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+          Related guides
+        </h2>
+        <LinkGrid links={guides.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
+      </section>
+    )
+  }
 
-  <SidebarLinks slot="sidebar" exclude={c.slug} />
+  <p class="mt-8 text-sm text-slate-600">
+    Results by {SITE.name} are for guidance. Confirm areas with your society, the revenue department or a licensed surveyor.
+  </p>
+
+  <SidebarLinks slot="sidebar" links={related.slice(0, 6)} heading="Nearby conversions" />
 </BaseLayout>
 ```
 
@@ -2947,14 +4264,15 @@ const schema = [
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import SidebarLinks from '../../components/SidebarLinks.astro';
-import { CONVERSIONS } from '../../data/conversions';
-import { STANDARDS, UNITS, convert, formatNumber } from '../../lib/units';
+import { SITE } from '../../config/site';
+import { ANSWER_ORDER, CATEGORIES, CONVERSIONS, conversionsInCategory, shortName } from '../../data/conversions';
+import { formatNumber, getStandard } from '../../lib/units';
 import { breadcrumbSchema } from '../../lib/schema';
 
-const title = 'Land Area Conversions: Marla, Kanal, Sq Ft, Gaz & Acre';
+const title = `All ${CONVERSIONS.length} Land Conversions: Marla, Kanal, Sq Ft, Gaz & Acre`;
 const description =
-  'Ready-made land conversions for Pakistan: 3, 5, 7 and 10 Marla to sq ft, 1 Kanal to sq ft and Marla, 5 Marla to square yards and 1 Acre to Kanal.';
-const site = Astro.site ?? new URL('https://www.example.com');
+  'Every LandNaap conversion page: Marla to sq ft, sq yards and sq meters, Kanal and acre conversions, Sarsai and Karachi gaz to Marla, on the 225, 250 and 272.25 standards.';
+const site = Astro.site ?? new URL(SITE.url);
 
 const schema = [
   breadcrumbSchema([
@@ -2968,38 +4286,693 @@ const schema = [
   <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Conversions' }]} />
   <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Land Area Conversions</h1>
   <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
-    Each page opens the converter pre-filled and shows exact results for the 225, 250 and 272.25 sq ft Marla standards.
+    {CONVERSIONS.length} ready-made conversions. Each page opens the converter pre-filled and shows exact results for the 225,
+    250 and 272.25 sq ft Marla standards.
   </p>
 
-  <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+  <nav aria-label="Conversion groups" class="mt-5 flex flex-wrap gap-2">
+    {
+      CATEGORIES.map((cat) => (
+        <a
+          href={`#${cat.id}`}
+          class="inline-flex min-h-10 items-center rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:border-brand-600 hover:bg-brand-50"
+        >
+          {cat.title}
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    CATEGORIES.map((cat) => (
+      <section id={cat.id} class="mt-10 scroll-mt-4" aria-labelledby={`${cat.id}-heading`}>
+        <h2 id={`${cat.id}-heading`} class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+          {cat.title}
+        </h2>
+        <p class="mt-1 mb-4 text-sm text-slate-600">{cat.description}</p>
+        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Conversion</th>
+                {ANSWER_ORDER.map((id) => (
+                  <th scope="col" class="text-right">
+                    <span class="num block">{getStandard(id).label}</span>
+                    <span class="block text-xs font-medium text-slate-600">{getStandard(id).name}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {conversionsInCategory(cat.id).map((c) => (
+                <tr>
+                  <th scope="row">
+                    <a
+                      href={`/convert/${c.slug}/`}
+                      class="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-700"
+                    >
+                      {c.linkLabel}
+                    </a>
+                  </th>
+                  {ANSWER_ORDER.map((id) => (
+                    <td class="text-right">
+                      {formatNumber(c.results[id])} {shortName(c.to, c.results[id])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    ))
+  }
+
+  <p class="mt-8 leading-7 text-slate-700">
+    Looking for a different value? The <a href="/" class="font-semibold text-brand-700 underline">land area converter</a> handles
+    any amount in any unit, and the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>
+    works from frontage and depth. For background, read the <a href="/guides/" class="font-semibold text-brand-700 underline">land measurement guides</a>.
+  </p>
+
+  <SidebarLinks slot="sidebar" />
+</BaseLayout>
+```
+
+## `src/pages/guides/covered-area-vs-plot-area-construction.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('covered-area-vs-plot-area-construction');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="why-it-matters">Plot size is not house size</h2>
+  <p>
+    A 10 Marla plot does not give you 10 Marla of house. Building bylaws require open space around the building, limit how
+    much of the plot the ground floor may cover, and cap the total floor area across all storeys. Construction contractors,
+    meanwhile, price their work on <strong>covered area</strong>, not plot area. Understanding the difference is the first
+    step in any realistic budget.
+  </p>
+
+  <h2 id="definitions">The five terms you need</h2>
+  <ul>
+    <li>
+      <strong>Plot area:</strong> the land you own, from boundary to boundary. For a 35 × 65 ft plot, 2,275 sq ft.
+    </li>
+    <li>
+      <strong>Setbacks:</strong> mandatory open strips at the front, rear and sometimes the sides, where you may not build
+      (apart from permitted items such as boundary walls).
+    </li>
+    <li>
+      <strong>Ground coverage:</strong> the footprint of the building on the ground floor, often expressed as a percentage of
+      plot area.
+    </li>
+    <li>
+      <strong>Covered area:</strong> the total built-up floor area of all floors, measured to the outside of external walls.
+      Basements, stair towers (mumty) and porches may or may not count, depending on the bylaws.
+    </li>
+    <li>
+      <strong>FAR (Floor Area Ratio):</strong> total covered area divided by plot area. A FAR of 1.5 on a 2,000 sq ft plot
+      allows up to 3,000 sq ft of covered area, if height and setback rules also permit it.
+    </li>
+  </ul>
+
+  <h2 id="example">Worked example: a 10 Marla house</h2>
+  <p>
+    Take a 35 × 65 ft society plot (2,275 sq ft). The figures below are <em>illustrative assumptions</em> to show the
+    method. Your own society or development authority sets the actual values by plot size.
+  </p>
+  <ol>
+    <li>
+      <strong>Apply setbacks.</strong> Assume a 10 ft front setback and a 5 ft rear setback, with no side setbacks. The
+      buildable depth is 65 − 10 − 5 = 50 ft, so the maximum footprint is 35 × 50 = <strong>1,750 sq ft</strong>.
+    </li>
+    <li>
+      <strong>Ground floor.</strong> Building the full footprint gives 1,750 sq ft of covered area. Ground coverage is
+      1,750 ÷ 2,275 = 77% of the plot.
+    </li>
+    <li>
+      <strong>First floor.</strong> Some societies cap the first floor at a percentage of the ground floor on larger plots.
+      Assuming a 75% cap: 1,750 × 0.75 = <strong>1,312.5 sq ft</strong>.
+    </li>
+    <li>
+      <strong>Total covered area:</strong> 1,750 + 1,312.5 = <strong>3,062.5 sq ft</strong>, before any stair tower or
+      basement.
+    </li>
+    <li><strong>Resulting FAR:</strong> 3,062.5 ÷ 2,275 = about 1.35.</li>
+  </ol>
+  <p>
+    So a "10 Marla house" in this scenario has roughly 3,060 sq ft of covered area, a third more than the plot itself, while
+    the ground-floor footprint is about three quarters of it.
+  </p>
+
+  <h2 id="estimates">Turning covered area into a construction estimate</h2>
+  <p>
+    Contractors usually quote a rate per square foot of covered area, either for the grey structure alone or for the
+    complete house including finishing. The basic estimate is simple:
+  </p>
+  <p><strong>Construction cost = covered area × rate per sq ft</strong></p>
+  <p>Using 3,062.5 sq ft with a quoted rate R, the estimate is 3,062.5 × R. A few things refine it:</p>
+  <ul>
+    <li>
+      <strong>Separate grey structure and finishing.</strong> Finishing quality varies far more than structure, so quote and
+      compare them separately.
+    </li>
+    <li>
+      <strong>Price items outside covered area separately.</strong> Boundary walls, gates, external paving, the porch roof
+      and an underground water tank are often outside the per-foot rate.
+    </li>
+    <li>
+      <strong>Check what is counted.</strong> Agree in writing whether the stair tower, basement and balconies are included
+      in the covered area the contractor bills.
+    </li>
+    <li>
+      <strong>Usable area is smaller.</strong> Covered area includes wall thickness, so room-by-room (carpet) area is
+      noticeably less. Use it when planning furniture, not when budgeting construction.
+    </li>
+  </ul>
+  <p>
+    Construction rates move with steel, cement and labour prices, so get current written quotes rather than relying on any
+    published average.
+  </p>
+
+  <h2 id="metric">Converting for drawings and engineers</h2>
+  <p>
+    Architects and structural engineers often work in metric. Multiply square feet by 0.09290304 to get square meters: the
+    2,275 sq ft plot is 211.35 sq m, and the 3,062.5 sq ft covered area is 284.52 sq m. The
+    <a href="/convert/10-marla-to-sq-meters/">10 Marla to square meters</a> page has the exact figures for each Marla
+    standard.
+  </p>
+
+  <h2 id="checklist">Checklist before you finalise a design</h2>
+  <ol>
+    <li>Get the current building and zoning bylaws for your exact plot category from the society or authority.</li>
+    <li>Note front, rear and side setbacks, the ground coverage limit, the maximum number of storeys and the height cap.</li>
+    <li>Check the rules on basements, stair towers, car porches, projections and parking.</li>
+    <li>Ask your architect for a covered-area schedule floor by floor, and check it against the FAR limit.</li>
+    <li>Submit drawings for approval before construction starts. Building without an approved plan risks fines or demolition.</li>
+  </ol>
+  <p>
+    Start with the right plot area. If you are unsure of yours, measure frontage and depth and use the
+    <a href="/plot-size-calculator/">plot size calculator</a>.
+  </p>
+</GuideLayout>
+```
+
+## `src/pages/guides/dha-bahria-town-lda-plot-dimensions.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('dha-bahria-town-lda-plot-dimensions');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="standard-cuts">Typical dimensions by plot size</h2>
+  <p>
+    Large housing societies in Punjab plan their blocks around a few standard plot categories, each with a usual frontage
+    (width facing the road) and depth. All of them use the 225 sq ft Marla. The table shows the dimensions most commonly
+    used in DHA Lahore and Bahria Town Lahore, and the exact Marla each one produces.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
     <table class="data-table">
       <thead>
         <tr>
-          <th scope="col">Conversion</th>
-          {
-            STANDARDS.map((s) => (
-              <th scope="col" class="text-right">
-                <span class="num block">{s.label}</span>
-                <span class="block text-xs font-medium text-slate-600">{s.name}</span>
-              </th>
-            ))
-          }
+          <th scope="col">Category</th>
+          <th scope="col">Typical dimensions</th>
+          <th scope="col" class="text-right">Area</th>
+          <th scope="col" class="text-right">Exact Marla (225)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">5 Marla</th><td>25 × 45 ft</td><td class="text-right">1,125 sq ft</td><td class="text-right">5.00</td></tr>
+        <tr><th scope="row">8 Marla</th><td>30 × 60 ft</td><td class="text-right">1,800 sq ft</td><td class="text-right">8.00</td></tr>
+        <tr><th scope="row">10 Marla</th><td>35 × 65 ft (or 35 × 64 ft)</td><td class="text-right">2,275 sq ft</td><td class="text-right">10.11</td></tr>
+        <tr><th scope="row">1 Kanal</th><td>50 × 90 ft</td><td class="text-right">4,500 sq ft</td><td class="text-right">20.00</td></tr>
+        <tr><th scope="row">2 Kanal</th><td>75 × 120 ft or 100 × 90 ft</td><td class="text-right">9,000 sq ft</td><td class="text-right">40.00</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    These are typical cuts, not guarantees. Dimensions vary between phases, blocks and schemes, and the plot map attached to
+    your allotment is the only figure that counts for your plot.
+  </p>
+
+  <h2 id="ten-marla">Why 10 Marla is 35 × 65 and not exactly 2,250 sq ft</h2>
+  <p>
+    Exactly 10 Marla on the society standard is 2,250 sq ft. Planners also want a frontage that suits a family house and
+    whole-foot dimensions that are easy to stake out on site. Exact options exist: 30 × 75 ft is too narrow for its depth,
+    and 45 × 50 ft is too shallow for a front lawn and a rear yard.
+  </p>
+  <p>
+    35 × 65 ft gives a comfortable proportion at 2,275 sq ft, about 10.11 Marla. Some phases use 35 × 64 ft (2,240 sq ft,
+    9.96 Marla) instead. In both cases the plot is sold under the 10 Marla category, and the 25 sq ft difference is
+    absorbed in the layout. The category is a label; the allotted area is on the plot map.
+  </p>
+
+  <h2 id="two-kanal">Two Kanal and larger</h2>
+  <p>
+    Two Kanal is the largest standard residential category in many DHA Lahore phases. Older phases tend to use deep plots of
+    75 × 120 ft; others use wider 100 × 90 ft plots. Both are 9,000 sq ft. Some phases also have 4 Kanal residential plots.
+    Wider frontage costs more per foot of road, which is one reason layouts differ between phases.
+  </p>
+
+  <h2 id="other-sizes">7, 12 Marla and commercial plots</h2>
+  <p>
+    Categories such as 7 Marla and 12 Marla exist in some phases and schemes, but their cuts vary much more than the core
+    sizes. A 7 Marla plot is often around 30 ft wide, and a 12 Marla plot is usually wider than a 10 Marla. Always measure
+    rather than assume.
+  </p>
+  <p>
+    Commercial plots follow their own categories. In DHA Lahore, 2, 4 and 8 Marla and 1 Kanal commercial plots are common.
+    Their dimensions depend on the market or boulevard they front, and they come with separate rules on height and use.
+  </p>
+
+  <h2 id="lda-schemes">LDA-approved private schemes</h2>
+  <p>
+    The Lahore Development Authority approves the layout plans of private housing schemes in its area. Approved schemes
+    generally use the 225 sq ft Marla, and many reuse the familiar 25 × 45 ft cut for 5 Marla. Each scheme's approved layout
+    plan is the authority on plot sizes, so check it rather than relying on a brochure. LDA also publishes information on
+    which schemes are approved, which is worth checking before you pay for a file.
+  </p>
+
+  <h2 id="corner-plots">Corner, park-facing and "extra land" plots</h2>
+  <p>
+    Corner plots are often not a clean rectangle. The corner may be cut back (chamfered) for road visibility, which reduces
+    the area, or the plot may include extra land along the side road, which increases it. Societies usually charge a premium
+    for corners and park-facing locations, and any extra land is often billed separately per Marla.
+  </p>
+  <p>
+    For an irregular corner plot, frontage × depth will not give the right area. Use the triangulation method in our guide on
+    <a href="/guides/how-to-measure-irregular-plot-area/">measuring irregular plots</a>.
+  </p>
+
+  <h2 id="before-buying">What to check before you buy</h2>
+  <ol>
+    <li>Get the plot map or possession letter and note the stated dimensions and area in square feet.</li>
+    <li>Measure frontage and depth on site, from boundary pillar to boundary pillar, keeping the tape straight and level.</li>
+    <li>
+      Enter both into the <a href="/plot-size-calculator/">plot size calculator</a> and compare the exact Marla with the
+      category you are paying for.
+    </li>
+    <li>For corners, record both side lengths and a diagonal, and check how any extra land is priced.</li>
+    <li>Read the society's building bylaws for your category before designing, because setbacks differ by plot size.</li>
+  </ol>
+</GuideLayout>
+```
+
+## `src/pages/guides/fard-intiqal-land-units-kanal-marla-sarsai.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('fard-intiqal-land-units-kanal-marla-sarsai');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="unit-chain">The unit chain: karam to acre</h2>
+  <p>
+    Land in Punjab's revenue records is measured with a single, internally consistent chain of units. It starts with the
+    <strong>karam</strong>, a measuring length of 5.5 ft (66 inches), and every larger unit is a whole multiple of the one
+    before it.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Unit</th>
+          <th scope="col">Definition</th>
+          <th scope="col" class="text-right">Square feet</th>
+          <th scope="col" class="text-right">Square yards</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Sarsai</th><td>1 karam × 1 karam</td><td class="text-right">30.25</td><td class="text-right">3.36</td></tr>
+        <tr><th scope="row">Marla</th><td>9 Sarsai</td><td class="text-right">272.25</td><td class="text-right">30.25</td></tr>
+        <tr><th scope="row">Kanal</th><td>20 Marla</td><td class="text-right">5,445</td><td class="text-right">605</td></tr>
+        <tr><th scope="row">Acre</th><td>8 Kanal (36 × 40 karam)</td><td class="text-right">43,560</td><td class="text-right">4,840</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Two numbers are worth remembering: a Kanal is 180 Sarsai, and an acre is 1,440 Sarsai (160 Marla). With those you can
+    move between any of the units with simple multiplication. Note that the revenue system always uses the 272.25 sq ft
+    Marla, even in districts where nearby housing societies sell plots in 225 sq ft Marla.
+  </p>
+
+  <h2 id="documents">The documents and terms you will meet</h2>
+  <ul>
+    <li>
+      <strong>Fard (fard malkiat):</strong> an extract from the record of rights showing the owners of a holding and their
+      shares. You need a current fard for almost any land transaction.
+    </li>
+    <li>
+      <strong>Jamabandi:</strong> the record of rights itself, prepared and updated periodically for each revenue estate
+      (mauza). It lists owners, cultivators, shares and areas.
+    </li>
+    <li>
+      <strong>Intiqal (mutation):</strong> the entry that records a change in ownership, for example after a sale, gift or
+      inheritance. Until the intiqal is sanctioned, the revenue record still shows the previous owner.
+    </li>
+    <li><strong>Khewat:</strong> the ownership account number grouping owners who share a holding.</li>
+    <li><strong>Khatauni:</strong> the cultivation account within a khewat, showing who cultivates the land.</li>
+    <li><strong>Khasra:</strong> the field number, identifying a specific parcel on the village map.</li>
+    <li><strong>Shajra (aks shajra):</strong> the village map showing khasra numbers and field boundaries.</li>
+  </ul>
+  <p>
+    In Punjab, computerised fards are issued through the Punjab Land Records Authority's Arazi Record Centres and online
+    services, which has made records easier to obtain and check than in the hand-written era.
+  </p>
+
+  <h2 id="notation">How area is written</h2>
+  <p>
+    Revenue records state area in Kanal and Marla, and Sarsai where needed. You will see it written in full, such as "4 Kanal
+    12 Marla 3 Sarsai", or compactly as <strong>4-12-3</strong> in the same order. Larger holdings may be expressed in acres
+    plus Kanal and Marla.
+  </p>
+  <p>
+    Ownership is often recorded as a share (hissa) of a khewat rather than a separate parcel. If three siblings jointly own
+    24 Kanal 6 Marla in equal shares, each one's share is a third of 486 Marla, which is 162 Marla or
+    <strong>8 Kanal 2 Marla</strong>. A share is an entitlement on paper; it does not show which part of the land is yours
+    until the land is partitioned.
+  </p>
+
+  <h2 id="convert">Converting a fard area to square feet</h2>
+  <p>The reliable method is to convert everything to Sarsai first, then multiply by 30.25.</p>
+  <ol>
+    <li>Take an area of 2 Kanal 7 Marla 4 Sarsai.</li>
+    <li>Kanal to Sarsai: 2 × 180 = 360.</li>
+    <li>Marla to Sarsai: 7 × 9 = 63.</li>
+    <li>Total: 360 + 63 + 4 = 427 Sarsai.</li>
+    <li>Square feet: 427 × 30.25 = <strong>12,916.75 sq ft</strong>.</li>
+  </ol>
+  <p>
+    If you want to know how many society plots that land could become, divide by 225: 12,916.75 ÷ 225 = 57.41 society Marla,
+    before any land is set aside for roads and amenities.
+  </p>
+
+  <h2 id="why-different">Why fard figures and society figures disagree</h2>
+  <p>
+    A developer buys farmland by the revenue Kanal and sells plots by the society Marla. The same acre that is 160 Marla in
+    the fard is 193.6 Marla when measured at 225 sq ft. Neither figure is wrong; they use different units. Trouble starts only
+    when someone compares a fard area with a society plot size without converting.
+  </p>
+
+  <h2 id="tips">Practical tips</h2>
+  <ul>
+    <li>Get a fresh fard before paying anything. Ownership and shares can change with each intiqal.</li>
+    <li>Match the khasra numbers on the fard with the shajra to confirm you are looking at the right land.</li>
+    <li>
+      Shares are not boundaries. For a specific parcel, ask for official demarcation (nishandehi) by revenue staff before you
+      build or fence.
+    </li>
+    <li>
+      Convert carefully. Use the <a href="/convert/1-marla-to-sarsai/">Marla to Sarsai</a> and
+      <a href="/convert/1-acre-to-kanal/">acre to Kanal</a> pages, or set the
+      <a href="/">land area converter</a> to the 272.25 standard.
+    </li>
+  </ul>
+</GuideLayout>
+```
+
+## `src/pages/guides/how-to-measure-irregular-plot-area.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('how-to-measure-irregular-plot-area');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="problem">Why frontage × depth is not enough</h2>
+  <p>
+    Frontage × depth is exact only for a rectangle. Many plots are not rectangles: corner plots with a cut corner, plots on
+    curved roads, inherited agricultural parcels and older town plots often have four unequal sides and angles that are not
+    90°.
+  </p>
+  <p>
+    Measuring the four sides alone does not fix the area either. Take a plot with two 30 ft sides and two 60 ft sides. If
+    the corners are square, it is a 30 × 60 ft rectangle of 1,800 sq ft. If it is skewed so that one diagonal measures 75 ft
+    instead of the rectangle's 67.08 ft, the same four sides enclose only <strong>1,709.85 sq ft</strong>, about 90 sq ft
+    less. The sides did not change; the angles did.
+  </p>
+
+  <h2 id="method">The method: split the plot into triangles</h2>
+  <p>
+    A triangle is the one shape whose area is fixed by its three sides. Any plot with straight boundaries can be divided into
+    triangles by drawing diagonals between corners. A four-sided plot needs one diagonal and becomes two triangles. A
+    five-sided plot needs two diagonals and becomes three triangles, and so on. What you need to measure:
+  </p>
+  <ul>
+    <li>all four sides, corner to corner (boundary pillar to boundary pillar);</li>
+    <li>one diagonal, which splits the plot into two triangles;</li>
+    <li>ideally the second diagonal as well, to check your work.</li>
+  </ul>
+
+  <h2 id="heron">Heron's formula</h2>
+  <p>For a triangle with sides a, b and c:</p>
+  <ol>
+    <li>Find the semi-perimeter: <strong>s = (a + b + c) ÷ 2</strong>.</li>
+    <li>Calculate <strong>Area = √( s × (s − a) × (s − b) × (s − c) )</strong>.</li>
+  </ol>
+  <p>
+    If any bracket comes out zero or negative, the three lengths cannot form a triangle, which almost always means a
+    measurement or recording error.
+  </p>
+
+  <h2 id="example">Worked example</h2>
+  <p>A four-sided plot ABCD was measured as follows:</p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr><th scope="col">Measurement</th><th scope="col" class="text-right">Length</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">AB (front)</th><td class="text-right">32 ft</td></tr>
+        <tr><th scope="row">BC (right side)</th><td class="text-right">61 ft</td></tr>
+        <tr><th scope="row">CD (rear)</th><td class="text-right">28 ft</td></tr>
+        <tr><th scope="row">DA (left side)</th><td class="text-right">58 ft</td></tr>
+        <tr><th scope="row">AC (diagonal)</th><td class="text-right">68 ft</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Triangle ABC</strong> (sides 32, 61, 68):</p>
+  <ul>
+    <li>s = (32 + 61 + 68) ÷ 2 = 80.5</li>
+    <li>Area = √(80.5 × 48.5 × 19.5 × 12.5) = √951,660.9 ≈ 975.53 sq ft</li>
+  </ul>
+  <p><strong>Triangle ACD</strong> (sides 68, 28, 58):</p>
+  <ul>
+    <li>s = (68 + 28 + 58) ÷ 2 = 77</li>
+    <li>Area = √(77 × 9 × 49 × 19) = √645,183 ≈ 803.23 sq ft</li>
+  </ul>
+  <p>
+    <strong>Total plot area</strong> = 975.53 + 803.23 = <strong>1,778.76 sq ft</strong>. That is 7.91 Marla on the 225 sq
+    ft society standard or 6.53 Marla on the 272.25 sq ft revenue standard.
+  </p>
+
+  <h2 id="shortcut">The averaging shortcut, and its limits</h2>
+  <p>
+    A common shortcut multiplies the average width by the average length. Here: ((32 + 28) ÷ 2) × ((61 + 58) ÷ 2) = 30 ×
+    59.5 = 1,785 sq ft. For this nearly rectangular plot the shortcut is only 0.35% high.
+  </p>
+  <p>
+    The shortcut ignores angles, though, and it never underestimates. For the skewed 30 × 60 plot in the first section it
+    gives 1,800 sq ft against a true 1,709.85 sq ft, an overstatement of more than 5%. On a plot sold by the Marla, that
+    difference is real money. Use triangulation whenever the corners are visibly not square.
+  </p>
+
+  <h2 id="check">Check your answer</h2>
+  <ul>
+    <li>
+      <strong>Second diagonal.</strong> Measure BD as well and recompute using triangles ABD and BCD. The two totals should
+      agree closely. In this example BD works out to about 65.1 ft.
+    </li>
+    <li>
+      <strong>Coordinates.</strong> If a surveyor gives you corner coordinates, the shoelace formula gives the area directly
+      and should match your triangle total.
+    </li>
+    <li>
+      <strong>Sense check.</strong> The true area should be a little below the averaging shortcut, never above it.
+    </li>
+  </ul>
+
+  <h2 id="tips">Measuring tips</h2>
+  <ul>
+    <li>Measure between boundary pillars or agreed corner points, not to the face of a wall that may be off the boundary.</li>
+    <li>Keep the tape taut and level. On sloping ground, measure in short horizontal steps.</li>
+    <li>Convert inches to decimal feet before calculating: 6 in = 0.5 ft and 3 in = 0.25 ft.</li>
+    <li>Sketch the plot and label every corner and length as you go, so diagonals are not mixed up.</li>
+    <li>For legal purposes, such as disputes, partition or registration, rely on an official demarcation or a licensed surveyor.</li>
+  </ul>
+  <p>
+    Once you have the total in square feet, convert it with the <a href="/">land area converter</a>, or check a
+    rectangular part of the plot with the <a href="/plot-size-calculator/">plot size calculator</a>.
+  </p>
+</GuideLayout>
+```
+
+## `src/pages/guides/index.astro`
+
+```astro
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import SidebarLinks from '../../components/SidebarLinks.astro';
+import { SITE } from '../../config/site';
+import { GUIDES } from '../../data/guides';
+import { breadcrumbSchema } from '../../lib/schema';
+
+const title = 'Land Measurement Guides for Pakistan: Marla, Kanal, Gaz & Fard';
+const description =
+  'Practical guides to Pakistani land measurement: 225 vs 272.25 sq ft Marla, DHA and Bahria plot dimensions, Karachi gaz, fard units, covered area and irregular plots.';
+const site = Astro.site ?? new URL(SITE.url);
+
+const schema = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: title,
+    description,
+    url: new URL('/guides/', site).href,
+    inLanguage: SITE.lang,
+    hasPart: GUIDES.map((g) => ({
+      '@type': 'Article',
+      headline: g.h1,
+      url: new URL(`/guides/${g.slug}/`, site).href,
+    })),
+  },
+  breadcrumbSchema([
+    { name: 'Home', url: new URL('/', site).href },
+    { name: 'Guides', url: new URL('/guides/', site).href },
+  ]),
+];
+---
+
+<BaseLayout title={title} description={description} schema={schema} sidebar>
+  <Breadcrumbs items={[{ name: 'Home', href: '/' }, { name: 'Guides' }]} />
+  <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Land Measurement Guides</h1>
+  <p class="mt-3 max-w-2xl text-base leading-7 text-slate-700 sm:text-lg">
+    Clear, factual references on how land is measured in Pakistan, written to sit alongside the calculators. Every example
+    uses the same exact formulas as the {SITE.name} tools.
+  </p>
+
+  <ol class="mt-8 space-y-4">
+    {
+      GUIDES.map((g, i) => (
+        <li>
+          <a
+            href={`/guides/${g.slug}/`}
+            class="group flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-brand-600 hover:bg-brand-50 sm:p-5"
+          >
+            <span
+              class="num flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-700 text-base font-bold text-white"
+              aria-hidden="true"
+            >
+              {i + 1}
+            </span>
+            <span>
+              <span class="block text-lg leading-snug font-bold text-slate-900 group-hover:text-brand-800">{g.h1}</span>
+              <span class="mt-1 block leading-6 text-slate-700">{g.summary}</span>
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+
+  <p class="mt-8 text-sm leading-6 text-slate-600">
+    Need a number rather than an explanation? Use the <a href="/" class="font-semibold text-brand-700 underline">land area converter</a>,
+    the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a> or browse
+    <a href="/convert/" class="font-semibold text-brand-700 underline">all conversions</a>.
+  </p>
+
+  <SidebarLinks slot="sidebar" />
+</BaseLayout>
+```
+
+## `src/pages/guides/karachi-sq-yards-gaz-vs-punjab-marla.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+import { formatNumber, fromSqFt } from '../../lib/units';
+
+const guide = getGuide('karachi-sq-yards-gaz-vs-punjab-marla');
+const sizes = [80, 120, 200, 240, 400, 500, 600, 1000, 2000];
+const rows = sizes.map((g) => {
+  const sqft = g * 9;
+  return {
+    g,
+    sqft,
+    m225: fromSqFt(sqft, 'marla', '225'),
+    m272: fromSqFt(sqft, 'marla', '272.25'),
+    k225: fromSqFt(sqft, 'kanal', '225'),
+  };
+});
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="two-systems">Two systems, one country</h2>
+  <p>
+    In Karachi and across urban Sindh, residential plots are measured and sold in <strong>square yards</strong>, usually
+    called gaz or simply "yards". A "120 yard house" means a house on a 120 square yard plot. In Punjab, Islamabad and Khyber
+    Pakhtunkhwa, the same plot would be described in Marla and Kanal. Families relocating between cities, overseas buyers and
+    investors comparing markets constantly need to translate between the two.
+  </p>
+  <p>
+    The bridge is the square foot. One square yard is 3 ft × 3 ft = <strong>9 sq ft</strong>. Convert gaz to square feet,
+    then divide by the Marla size you need.
+  </p>
+
+  <h2 id="shortcuts">The shortcuts worth memorising</h2>
+  <p>Because a society Marla is exactly 25 square yards, most conversions become simple division:</p>
+  <ul>
+    <li><strong>Society Marla</strong> = square yards ÷ 25</li>
+    <li><strong>Society Kanal</strong> = square yards ÷ 500</li>
+    <li><strong>Revenue Marla</strong> = square yards ÷ 30.25</li>
+    <li><strong>Revenue Kanal</strong> = square yards ÷ 605</li>
+  </ul>
+  <p>
+    Going the other way, multiply Marla by 25 (society) or 30.25 (revenue) to get square yards. On the 250 sq ft developer
+    standard a Marla is about 27.78 square yards.
+  </p>
+
+  <h2 id="table">Common Karachi plot sizes in Marla and Kanal</h2>
+  <p>
+    The sizes below are the ones most often seen in Karachi listings, from small 80 and 120 yard plots up to the 500 and
+    1,000 yard bungalow plots associated with DHA Karachi.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Square yards</th>
+          <th scope="col" class="text-right">Square feet</th>
+          <th scope="col" class="text-right">Marla (225)</th>
+          <th scope="col" class="text-right">Marla (272.25)</th>
+          <th scope="col" class="text-right">Kanal (225)</th>
         </tr>
       </thead>
       <tbody>
         {
-          CONVERSIONS.map((c) => (
+          rows.map((r) => (
             <tr>
-              <th scope="row">
-                <a href={`/convert/${c.slug}/`} class="font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-700">
-                  {c.h1}
-                </a>
-              </th>
-              {STANDARDS.map((s) => (
-                <td class="text-right">
-                  {formatNumber(convert(c.value, c.from, c.to, s.id))} {UNITS[c.to].short}
-                </td>
-              ))}
+              <th scope="row">{formatNumber(r.g)} gaz</th>
+              <td class="text-right">{formatNumber(r.sqft)}</td>
+              <td class="text-right">{formatNumber(r.m225, 2)}</td>
+              <td class="text-right">{formatNumber(r.m272, 2)}</td>
+              <td class="text-right">{formatNumber(r.k225, 2)}</td>
             </tr>
           ))
         }
@@ -3007,14 +4980,185 @@ const schema = [
     </table>
   </div>
 
-  <p class="mt-6 leading-7 text-slate-700">
-    Looking for a different value? The <a href="/" class="font-semibold text-brand-700 underline">land area converter</a> handles
-    any amount in any unit, and the <a href="/plot-size-calculator/" class="font-semibold text-brand-700 underline">plot size calculator</a>
-    works from frontage and depth.
+  <h2 id="matches">Where the two systems line up</h2>
+  <p>A few sizes match almost perfectly on the society standard, which makes cross-city comparison easy:</p>
+  <ul>
+    <li><strong>500 gaz = 1 Kanal.</strong> A DHA Karachi 500 yard plot has the same area as a 50 × 90 ft Kanal in Lahore.</li>
+    <li><strong>1,000 gaz = 2 Kanal.</strong> The top residential categories in both cities are the same size.</li>
+    <li><strong>200 gaz = 8 Marla.</strong> Both are 1,800 sq ft, for example a 30 × 60 ft plot.</li>
+    <li><strong>120 gaz ≈ 5 Marla.</strong> At 1,080 sq ft, the Karachi plot is 45 sq ft smaller than a 1,125 sq ft society 5 Marla.</li>
+    <li><strong>240 gaz ≈ 10 Marla.</strong> At 2,160 sq ft, it is 90 sq ft short of a 2,250 sq ft society 10 Marla.</li>
+  </ul>
+  <p>
+    On the revenue standard nothing lines up neatly. A revenue Kanal is 605 square yards, so a 500 yard plot is only about
+    0.83 of it.
   </p>
 
-  <SidebarLinks slot="sidebar" />
-</BaseLayout>
+  <h2 id="example">Worked example: comparing two family homes</h2>
+  <p>
+    A family is choosing between a house on a 240 yard plot in Karachi and a 10 Marla house in a Lahore society.
+  </p>
+  <ol>
+    <li>Karachi plot: 240 × 9 = 2,160 sq ft.</li>
+    <li>Lahore plot: if it is a 35 × 65 ft cut, 2,275 sq ft; at exactly 10 Marla, 2,250 sq ft.</li>
+    <li>Difference: 90 to 115 sq ft in favour of Lahore, about 4–5%.</li>
+  </ol>
+  <p>
+    To compare prices fairly, divide each asking price by its square footage. The result is a price per square foot that is
+    directly comparable regardless of which unit the listing used.
+  </p>
+
+  <h2 id="pitfalls">Pitfalls to watch for</h2>
+  <ul>
+    <li>
+      <strong>"Yards" means square yards.</strong> In Karachi listings, "120 yards" always refers to area, never a length.
+    </li>
+    <li>
+      <strong>Flats are quoted in square feet.</strong> Apartment sizes are usually given as covered area in square feet,
+      which is not comparable with a plot area in yards or Marla.
+    </li>
+    <li>
+      <strong>Check the Marla standard on the Punjab side.</strong> If the Punjab property is on revenue land, a "10 Marla"
+      plot is 2,722.5 sq ft, more than 300 square yards.
+    </li>
+    <li>
+      <strong>Rounding.</strong> Listings often round 4.8 Marla up to "5 Marla". Convert the exact figure before you
+      negotiate.
+    </li>
+  </ul>
+  <p>
+    For any size not in the table, use the <a href="/">land area converter</a>: type the square yards and read off Marla
+    and Kanal on all three standards at once.
+  </p>
+</GuideLayout>
+```
+
+## `src/pages/guides/marla-size-pakistan-225-vs-272-25.astro`
+
+```astro
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('marla-size-pakistan-225-vs-272-25');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="short-answer">The short answer</h2>
+  <p>
+    "Marla" is one word for three different areas. Which one applies depends on who measured the land and which document you
+    are reading. Before you compare prices, sign anything or plan a house, find out which standard your plot uses.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Standard</th>
+          <th scope="col" class="text-right">1 Marla</th>
+          <th scope="col" class="text-right">1 Kanal</th>
+          <th scope="col">Typically used by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Society</th>
+          <td class="text-right">225 sq ft (25 sq yd)</td>
+          <td class="text-right">4,500 sq ft</td>
+          <td>DHA, Bahria Town, LDA-approved and most private housing societies</td>
+        </tr>
+        <tr>
+          <th scope="row">Revenue</th>
+          <td class="text-right">272.25 sq ft (30.25 sq yd)</td>
+          <td class="text-right">5,445 sq ft</td>
+          <td>Patwari records: fard, jamabandi, intiqal, registry; agricultural land</td>
+        </tr>
+        <tr>
+          <th scope="row">Developer</th>
+          <td class="text-right">250 sq ft (27.78 sq yd)</td>
+          <td class="text-right">5,000 sq ft</td>
+          <td>Some private schemes that define their own unit</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="revenue-marla">Where 272.25 sq ft comes from: the karam</h2>
+  <p>
+    The revenue system in Punjab is built on the <strong>karam</strong>, a measuring length of 5.5 feet (66 inches). A square
+    with 1-karam sides is called a <strong>Sarsai</strong>: 5.5 × 5.5 = 30.25 sq ft. Nine Sarsai make a Marla, and twenty
+    Marla make a Kanal:
+  </p>
+  <ul>
+    <li>1 Sarsai = 30.25 sq ft</li>
+    <li>1 Marla = 9 Sarsai = 272.25 sq ft</li>
+    <li>1 Kanal = 20 Marla = 5,445 sq ft</li>
+    <li>1 Acre = 8 Kanal = 160 Marla = 43,560 sq ft</li>
+  </ul>
+  <p>
+    The chain closes neatly at the acre. An acre is traditionally reckoned as a field 36 karam by 40 karam, which is 1,440
+    Sarsai. That is why the revenue Marla is exactly one 160th of an acre, and why this standard is the one the revenue
+    department still uses for land records and farmland. A revenue Marla also equals one square rod (16.5 ft × 16.5 ft), the
+    old English surveying unit.
+  </p>
+
+  <h2 id="society-marla">Where 225 sq ft comes from</h2>
+  <p>
+    Apply the same nine-Sarsai structure to a 5 ft karam and you get 5 × 5 × 9 = <strong>225 sq ft</strong>. This "small
+    Marla" has a practical advantage for urban planning: it is exactly 25 square yards, so every plot size works out to round
+    numbers. Five Marla is 125 sq yd, ten Marla is 250 sq yd and a Kanal is 500 sq yd or 4,500 sq ft.
+  </p>
+  <p>
+    Those round numbers suit rectangular plot layouts. A 25 × 45 ft plot is exactly 5 Marla, 30 × 60 ft is exactly 8 Marla
+    and 50 × 90 ft is exactly 1 Kanal. Housing societies such as DHA and Bahria Town, and most private schemes in urban
+    Punjab, sell plots on this basis.
+  </p>
+
+  <h2 id="developer-marla">The 250 sq ft Marla</h2>
+  <p>
+    Some private developers define a Marla as 250 sq ft, giving a 5,000 sq ft Kanal. It is less common than the other two,
+    but it appears often enough that you should never assume. If a booking form, brochure or allotment letter states the
+    area in square feet, divide that figure by the number of Marla to see which definition the scheme is using.
+  </p>
+
+  <h2 id="what-it-costs">What the difference means in practice</h2>
+  <p>
+    The revenue Marla is 47.25 sq ft, or 21%, larger than the society Marla. On a single 5 Marla plot that is 236.25 sq ft,
+    roughly the size of a bedroom. On a Kanal it is 945 sq ft.
+  </p>
+  <p>
+    It matters most when comparing prices. Suppose two 5 Marla plots are each offered for Rs 50 lakh. On the society
+    standard that is about Rs 4,444 per sq ft; on the revenue standard it is about Rs 3,673 per sq ft. The second plot is
+    noticeably cheaper per foot even though the headline price and the "5 Marla" label are identical.
+  </p>
+  <p>
+    The same gap explains part of the economics of land development. Farmland is bought in revenue Kanal of 5,445 sq ft.
+    The same Kanal, measured in society Marla, is 24.2 Marla before any land is given up for roads, parks and other
+    amenities.
+  </p>
+
+  <h2 id="check-yours">How to check which Marla your plot uses</h2>
+  <ul>
+    <li>
+      <strong>Society plots:</strong> the allotment letter, possession letter or plot map usually states the dimensions or
+      the area in square feet. Divide the square feet by the Marla count.
+    </li>
+    <li>
+      <strong>Revenue land:</strong> the fard and intiqal state the area in Kanal, Marla and sometimes Sarsai. These figures
+      are on the 272.25 sq ft standard.
+    </li>
+    <li>
+      <strong>Building plans:</strong> approved drawings record plot area in square feet, which removes any ambiguity.
+    </li>
+    <li>
+      <strong>Measure it:</strong> frontage × depth gives the area in square feet. Our
+      <a href="/plot-size-calculator/">plot size calculator</a> converts it into Marla on all three standards at once.
+    </li>
+  </ul>
+  <p>
+    When a seller or agent quotes a size, ask for it in square feet as well. Square feet mean the same thing everywhere, so
+    the question settles which Marla they mean before any money changes hands.
+  </p>
+</GuideLayout>
 ```
 
 ## `src/pages/index.astro`
@@ -3029,7 +5173,9 @@ import FormulaList from '../components/FormulaList.astro';
 import SidebarLinks from '../components/SidebarLinks.astro';
 import ReferenceTable from '../components/ReferenceTable.astro';
 import { SITE } from '../config/site';
-import { CONVERSIONS } from '../data/conversions';
+import { CONVERSIONS, POPULAR_CONVERSIONS } from '../data/conversions';
+import { GUIDES } from '../data/guides';
+import LinkGrid from '../components/LinkGrid.astro';
 import { HOME_EXTRA_FAQS, STANDARD_FAQS } from '../data/faqs';
 import { faqPageSchema, softwareApplicationSchema, websiteSchema } from '../lib/schema';
 
@@ -3038,7 +5184,7 @@ const description =
   'Convert Marla, Kanal, sq ft, square yards (gaz), sq meters, acres and Sarsai instantly. Switch between 225, 250 and 272.25 sq ft Marla standards. Free & private.';
 
 const faqs = [...STANDARD_FAQS, ...HOME_EXTRA_FAQS];
-const site = Astro.site ?? new URL('https://www.example.com');
+const site = Astro.site ?? new URL(SITE.url);
 const url = new URL('/', site).href;
 
 const schema = [
@@ -3069,9 +5215,7 @@ const schema = [
 
   <LandConverter id="home-converter" initialValue={5} initialUnit="marla" initialStandard="225" />
 
-  <div class="mt-8">
-    <AdSlot variant="rectangle" name="in-content-1" />
-  </div>
+  <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
 
   <section class="prose-content mt-4" aria-labelledby="standards-heading">
     <h2 id="standards-heading">Which Marla is the right one?</h2>
@@ -3107,23 +5251,16 @@ const schema = [
 
   <section class="mt-10" aria-labelledby="popular-heading">
     <h2 id="popular-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Popular conversions</h2>
-    <ul class="grid gap-3 sm:grid-cols-2">
-      {
-        CONVERSIONS.map((c) => (
-          <li>
-            <a
-              href={`/convert/${c.slug}/`}
-              class="flex min-h-14 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 transition-colors hover:border-brand-600 hover:bg-brand-50"
-            >
-              <span>{c.h1}</span>
-              <span aria-hidden="true" class="text-brand-700">
-                →
-              </span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+    <LinkGrid links={POPULAR_CONVERSIONS.map((c) => ({ href: `/convert/${c.slug}/`, label: c.h1 }))} />
+    <p class="mt-3 text-sm text-slate-600">
+      <a href="/convert/" class="font-semibold text-brand-700 underline">See all {CONVERSIONS.length} conversions</a>, grouped
+      by Marla, Kanal, acre, square yards and square meters.
+    </p>
+  </section>
+
+  <section class="mt-10" aria-labelledby="guides-heading">
+    <h2 id="guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Land measurement guides</h2>
+    <LinkGrid links={GUIDES.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
   </section>
 
   <FormulaList />
@@ -3154,7 +5291,7 @@ const description =
   'Enter plot frontage and depth in feet to get sq ft, square yards, exact Marla, Kanal and the closest standard plot size (5 Marla, 10 Marla, 1 Kanal). 225, 250 or 272.25.';
 
 const faqs = [...PLOT_FAQS, ...STANDARD_FAQS];
-const site = Astro.site ?? new URL('https://www.example.com');
+const site = Astro.site ?? new URL(SITE.url);
 const url = new URL('/plot-size-calculator/', site).href;
 
 /** Example dimensions that produce standard sizes (exact arithmetic). */
@@ -3200,11 +5337,9 @@ const schema = [
 
   <PlotCalculator id="plot-calc" initialWidth={25} initialDepth={45} initialStandard="225" />
 
-  <div class="mt-8">
-    <AdSlot variant="rectangle" name="in-content-1" />
-  </div>
+  <AdSlot variant="rectangle" name="in-content-1" class="mt-8" />
 
-  <section class="mt-6" aria-labelledby="dims-heading">
+  <section class="mt-10" aria-labelledby="dims-heading">
     <h2 id="dims-heading" class="mb-2 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
       Standard plot sizes and example dimensions
     </h2>
@@ -3284,7 +5419,7 @@ const schema = [
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import { SITE } from '../config/site';
-const site = Astro.site ?? new URL('https://www.example.com');
+const site = Astro.site ?? new URL(SITE.url);
 const domain = site.hostname;
 ---
 
@@ -3299,8 +5434,9 @@ const domain = site.hostname;
       <p class="text-sm text-slate-500">Last updated: {SITE.lastUpdated}</p>
 
       <p>
-        This Privacy Policy explains how {SITE.name} ("we", "us", "our") collects, uses and protects information when you visit
-        {domain} (the "Site"). By using the Site you agree to this policy.
+        This Privacy Policy explains how {SITE.name}, operated by {SITE.owner} ({SITE.city}) ("we", "us", "our"), collects,
+        uses and protects information when you visit {domain} (the "Site"). By using the Site you agree to this policy.
+        Contact: <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>.
       </p>
 
       <h2>1. Information you enter into the calculators</h2>
@@ -3317,9 +5453,15 @@ const domain = site.hostname;
         the Site, such as IP address, browser type, requested page, referring page and time of request. This data is used for
         security, abuse prevention and aggregate traffic statistics, and is handled under Cloudflare's own privacy policy.
       </p>
+      <p>
+        We do not use Google Analytics or any other third-party analytics service, and we do not set tracking cookies of our
+        own.
+      </p>
 
       <h2>3. Cookies and advertising</h2>
-      <p>We may display advertisements served by Google AdSense and other third-party advertising partners.</p>
+      <p>
+        The Site may display advertisements served by Google AdSense. When advertising is active, the following applies:
+      </p>
       <ul>
         <li>
           Third-party vendors, including Google, use cookies to serve ads based on a user's prior visits to this website or other
@@ -3406,7 +5548,8 @@ import { SITE } from '../config/site';
       <p class="text-sm text-slate-500">Last updated: {SITE.lastUpdated}</p>
 
       <p>
-        These Terms of Use ("Terms") govern your use of the {SITE.name} website and calculators (the "Site"). By accessing or
+        These Terms of Use ("Terms") govern your use of the {SITE.name} website and calculators (the "Site"), operated by
+        {SITE.owner}, {SITE.city} ("we", "us"). By accessing or
         using the Site you agree to these Terms. If you do not agree, please do not use the Site.
       </p>
 
@@ -3427,7 +5570,7 @@ import { SITE } from '../config/site';
 
       <h2>3. Limitation of liability</h2>
       <p>
-        To the fullest extent permitted by law, {SITE.name} and its operators shall not be liable for any direct, indirect,
+        To the fullest extent permitted by law, {SITE.name} and its operator, {SITE.owner}, shall not be liable for any direct, indirect,
         incidental, consequential or special damages, including financial loss, arising from your use of, or inability to use,
         the Site or from reliance on any result it produces.
       </p>
@@ -3441,7 +5584,7 @@ import { SITE } from '../config/site';
 
       <h2>5. Intellectual property</h2>
       <p>
-        The Site's design, text and code are owned by {SITE.name} unless otherwise stated. You may share links to any page and
+        The Site's design, text and code are owned by {SITE.owner} unless otherwise stated. You may share links to any page and
         quote short excerpts with attribution. Mathematical formulas and unit definitions are not claimed as our property.
       </p>
 
@@ -3463,7 +5606,7 @@ import { SITE } from '../config/site';
       <h2>9. Governing law</h2>
       <p>
         These Terms are governed by the laws of the Islamic Republic of Pakistan. Any dispute shall be subject to the exclusive
-        jurisdiction of the courts at {SITE.city.split(',')[0]}.
+        jurisdiction of the courts at {SITE.jurisdiction}, Pakistan.
       </p>
 
       <h2>10. Contact</h2>
@@ -3559,6 +5702,99 @@ import { SITE } from '../config/site';
     @apply bg-slate-50;
   }
 }
+```
+
+## `tests/pages.test.ts`
+
+```ts
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { SITE } from '../src/config/site.ts';
+import { CONVERSIONS, POPULAR_SLUGS, getConversion, relatedConversions } from '../src/data/conversions.ts';
+import { GUIDES } from '../src/data/guides.ts';
+
+/** Slugs explicitly required by the content brief. */
+const REQUIRED_SLUGS = [
+  '2-marla-to-sq-ft', '3-marla-to-sq-ft', '3-5-marla-to-sq-ft', '4-marla-to-sq-ft', '5-marla-to-sq-ft',
+  '6-marla-to-sq-ft', '7-marla-to-sq-ft', '8-marla-to-sq-ft', '10-marla-to-sq-ft', '12-marla-to-sq-ft',
+  '15-marla-to-sq-ft',
+  '3-marla-to-sq-yards', '5-marla-to-sq-yards', '7-marla-to-sq-yards', '10-marla-to-sq-yards', '15-marla-to-sq-yards',
+  '5-marla-to-sq-meters', '10-marla-to-sq-meters',
+  '1-kanal-to-sq-ft', '1-kanal-to-marla', '1-kanal-to-sq-yards', '1-kanal-to-sq-meters', '2-kanal-to-sq-ft',
+  '2-kanal-to-marla', '4-kanal-to-acre', '8-kanal-to-acre',
+  '1-acre-to-kanal', '1-acre-to-marla', '1-acre-to-sq-ft', '1000-sq-ft-to-marla', '1125-sq-ft-to-marla',
+  '2250-sq-ft-to-marla', '4500-sq-ft-to-marla', '5445-sq-ft-to-marla',
+  '1-marla-to-sarsai', '1-marla-to-sq-ft', '100-sq-yards-to-marla', '120-sq-yards-to-marla', '250-sq-yards-to-marla',
+  '500-sq-yards-to-kanal',
+];
+
+const REQUIRED_GUIDES = [
+  'marla-size-pakistan-225-vs-272-25',
+  'dha-bahria-town-lda-plot-dimensions',
+  'karachi-sq-yards-gaz-vs-punjab-marla',
+  'fard-intiqal-land-units-kanal-marla-sarsai',
+  'covered-area-vs-plot-area-construction',
+  'how-to-measure-irregular-plot-area',
+];
+
+/** Home, plot calculator, /convert/, /guides/, about, privacy, terms, contact */
+const STATIC_PAGES = 8;
+
+test('every required conversion slug is generated', () => {
+  for (const s of REQUIRED_SLUGS) assert.ok(getConversion(s), `missing ${s}`);
+});
+
+test('every required guide exists', () => {
+  for (const s of REQUIRED_GUIDES) assert.ok(GUIDES.some((g) => g.slug === s), `missing guide ${s}`);
+});
+
+test('site has 70+ indexable pages', () => {
+  const total = CONVERSIONS.length + GUIDES.length + STATIC_PAGES;
+  assert.ok(total >= 70, `only ${total} pages`);
+});
+
+test('slugs, titles, descriptions and context paragraphs are unique', () => {
+  for (const key of ['slug', 'title', 'description', 'context', 'h1'] as const) {
+    const values = CONVERSIONS.map((c) => c[key]);
+    assert.equal(new Set(values).size, values.length, `duplicate ${key}`);
+  }
+  assert.equal(new Set(GUIDES.map((g) => g.title)).size, GUIDES.length);
+});
+
+test('meta descriptions stay within 165 characters', () => {
+  for (const c of CONVERSIONS) assert.ok(c.description.length <= 165, `${c.slug}: ${c.description.length}`);
+  for (const g of GUIDES) assert.ok(g.description.length <= 165, `${g.slug}: ${g.description.length}`);
+});
+
+test('related links resolve, exclude self and include adjacent sizes', () => {
+  for (const c of CONVERSIONS) {
+    const rel = relatedConversions(c);
+    assert.ok(rel.length >= 4, `${c.slug} has only ${rel.length} links`);
+    assert.ok(!rel.includes(c), `${c.slug} links to itself`);
+  }
+  const five = relatedConversions(getConversion('5-marla-to-sq-ft')!).map((x) => x.slug);
+  for (const s of ['4-marla-to-sq-ft', '6-marla-to-sq-ft', '5-marla-to-sq-yards', '7-marla-to-sq-ft']) {
+    assert.ok(five.includes(s), `5 Marla page should link to ${s}`);
+  }
+});
+
+test('every conversion page is reachable from another conversion page', () => {
+  const linked = new Set(CONVERSIONS.flatMap((c) => relatedConversions(c).map((r) => r.slug)));
+  for (const c of CONVERSIONS) assert.ok(linked.has(c.slug), `${c.slug} has no inbound related link`);
+});
+
+test('guide and popular references point at real conversions', () => {
+  for (const s of POPULAR_SLUGS) assert.ok(getConversion(s), s);
+  for (const g of GUIDES) for (const s of g.relatedConversions) assert.ok(getConversion(s), `${g.slug} -> ${s}`);
+});
+
+test('llms.txt lists every conversion and guide URL', () => {
+  const txt = readFileSync(new URL('../public/llms.txt', import.meta.url), 'utf8');
+  for (const c of CONVERSIONS) assert.ok(txt.includes(`${SITE.url}/convert/${c.slug}/`), `llms.txt missing ${c.slug}`);
+  for (const g of GUIDES) assert.ok(txt.includes(`${SITE.url}/guides/${g.slug}/`), `llms.txt missing ${g.slug}`);
+  assert.ok(txt.includes(`${SITE.url}/guides/`));
+});
 ```
 
 ## `tests/units.test.ts`

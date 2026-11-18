@@ -7,7 +7,9 @@ import FormulaList from '../components/FormulaList.astro';
 import SidebarLinks from '../components/SidebarLinks.astro';
 import ReferenceTable from '../components/ReferenceTable.astro';
 import { SITE } from '../config/site';
-import { CONVERSIONS } from '../data/conversions';
+import { CONVERSIONS, POPULAR_CONVERSIONS } from '../data/conversions';
+import { GUIDES } from '../data/guides';
+import LinkGrid from '../components/LinkGrid.astro';
 import { HOME_EXTRA_FAQS, STANDARD_FAQS } from '../data/faqs';
 import { faqPageSchema, softwareApplicationSchema, websiteSchema } from '../lib/schema';
 
@@ -83,23 +85,16 @@ const schema = [
 
   <section class="mt-10" aria-labelledby="popular-heading">
     <h2 id="popular-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Popular conversions</h2>
-    <ul class="grid gap-3 sm:grid-cols-2">
-      {
-        CONVERSIONS.map((c) => (
-          <li>
-            <a
-              href={`/convert/${c.slug}/`}
-              class="flex min-h-14 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 transition-colors hover:border-brand-600 hover:bg-brand-50"
-            >
-              <span>{c.h1}</span>
-              <span aria-hidden="true" class="text-brand-700">
-                →
-              </span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+    <LinkGrid links={POPULAR_CONVERSIONS.map((c) => ({ href: `/convert/${c.slug}/`, label: c.h1 }))} />
+    <p class="mt-3 text-sm text-slate-600">
+      <a href="/convert/" class="font-semibold text-brand-700 underline">See all {CONVERSIONS.length} conversions</a>, grouped
+      by Marla, Kanal, acre, square yards and square meters.
+    </p>
+  </section>
+
+  <section class="mt-10" aria-labelledby="guides-heading">
+    <h2 id="guides-heading" class="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Land measurement guides</h2>
+    <LinkGrid links={GUIDES.map((g) => ({ href: `/guides/${g.slug}/`, label: g.h1, note: g.summary }))} />
   </section>
 
   <FormulaList />

@@ -13,8 +13,9 @@
     "build:fast": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node --experimental-strip-types --test tests/units.test.ts",
-    "astro": "astro"
+    "test": "node --experimental-strip-types --test tests/units.test.ts tests/pages.test.ts",
+    "astro": "astro",
+    "llms": "node --experimental-strip-types scripts/generate-llms.ts"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.5",

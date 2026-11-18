@@ -1,0 +1,123 @@
+---
+import GuideLayout from '../../layouts/GuideLayout.astro';
+import { getGuide } from '../../data/guides';
+
+const guide = getGuide('marla-size-pakistan-225-vs-272-25');
+---
+
+<GuideLayout guide={guide}>
+  <h2 id="short-answer">The short answer</h2>
+  <p>
+    "Marla" is one word for three different areas. Which one applies depends on who measured the land and which document you
+    are reading. Before you compare prices, sign anything or plan a house, find out which standard your plot uses.
+  </p>
+  <div class="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Standard</th>
+          <th scope="col" class="text-right">1 Marla</th>
+          <th scope="col" class="text-right">1 Kanal</th>
+          <th scope="col">Typically used by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Society</th>
+          <td class="text-right">225 sq ft (25 sq yd)</td>
+          <td class="text-right">4,500 sq ft</td>
+          <td>DHA, Bahria Town, LDA-approved and most private housing societies</td>
+        </tr>
+        <tr>
+          <th scope="row">Revenue</th>
+          <td class="text-right">272.25 sq ft (30.25 sq yd)</td>
+          <td class="text-right">5,445 sq ft</td>
+          <td>Patwari records: fard, jamabandi, intiqal, registry; agricultural land</td>
+        </tr>
+        <tr>
+          <th scope="row">Developer</th>
+          <td class="text-right">250 sq ft (27.78 sq yd)</td>
+          <td class="text-right">5,000 sq ft</td>
+          <td>Some private schemes that define their own unit</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="revenue-marla">Where 272.25 sq ft comes from: the karam</h2>
+  <p>
+    The revenue system in Punjab is built on the <strong>karam</strong>, a measuring length of 5.5 feet (66 inches). A square
+    with 1-karam sides is called a <strong>Sarsai</strong>: 5.5 × 5.5 = 30.25 sq ft. Nine Sarsai make a Marla, and twenty
+    Marla make a Kanal:
+  </p>
+  <ul>
+    <li>1 Sarsai = 30.25 sq ft</li>
+    <li>1 Marla = 9 Sarsai = 272.25 sq ft</li>
+    <li>1 Kanal = 20 Marla = 5,445 sq ft</li>
+    <li>1 Acre = 8 Kanal = 160 Marla = 43,560 sq ft</li>
+  </ul>
+  <p>
+    The chain closes neatly at the acre. An acre is traditionally reckoned as a field 36 karam by 40 karam, which is 1,440
+    Sarsai. That is why the revenue Marla is exactly one 160th of an acre, and why this standard is the one the revenue
+    department still uses for land records and farmland. A revenue Marla also equals one square rod (16.5 ft × 16.5 ft), the
+    old English surveying unit.
+  </p>
+
+  <h2 id="society-marla">Where 225 sq ft comes from</h2>
+  <p>
+    Apply the same nine-Sarsai structure to a 5 ft karam and you get 5 × 5 × 9 = <strong>225 sq ft</strong>. This "small
+    Marla" has a practical advantage for urban planning: it is exactly 25 square yards, so every plot size works out to round
+    numbers. Five Marla is 125 sq yd, ten Marla is 250 sq yd and a Kanal is 500 sq yd or 4,500 sq ft.
+  </p>
+  <p>
+    Those round numbers suit rectangular plot layouts. A 25 × 45 ft plot is exactly 5 Marla, 30 × 60 ft is exactly 8 Marla
+    and 50 × 90 ft is exactly 1 Kanal. Housing societies such as DHA and Bahria Town, and most private schemes in urban
+    Punjab, sell plots on this basis.
+  </p>
+
+  <h2 id="developer-marla">The 250 sq ft Marla</h2>
+  <p>
+    Some private developers define a Marla as 250 sq ft, giving a 5,000 sq ft Kanal. It is less common than the other two,
+    but it appears often enough that you should never assume. If a booking form, brochure or allotment letter states the
+    area in square feet, divide that figure by the number of Marla to see which definition the scheme is using.
+  </p>
+
+  <h2 id="what-it-costs">What the difference means in practice</h2>
+  <p>
+    The revenue Marla is 47.25 sq ft, or 21%, larger than the society Marla. On a single 5 Marla plot that is 236.25 sq ft,
+    roughly the size of a bedroom. On a Kanal it is 945 sq ft.
+  </p>
+  <p>
+    It matters most when comparing prices. Suppose two 5 Marla plots are each offered for Rs 50 lakh. On the society
+    standard that is about Rs 4,444 per sq ft; on the revenue standard it is about Rs 3,673 per sq ft. The second plot is
+    noticeably cheaper per foot even though the headline price and the "5 Marla" label are identical.
+  </p>
+  <p>
+    The same gap explains part of the economics of land development. Farmland is bought in revenue Kanal of 5,445 sq ft.
+    The same Kanal, measured in society Marla, is 24.2 Marla before any land is given up for roads, parks and other
+    amenities.
+  </p>
+
+  <h2 id="check-yours">How to check which Marla your plot uses</h2>
+  <ul>
+    <li>
+      <strong>Society plots:</strong> the allotment letter, possession letter or plot map usually states the dimensions or
+      the area in square feet. Divide the square feet by the Marla count.
+    </li>
+    <li>
+      <strong>Revenue land:</strong> the fard and intiqal state the area in Kanal, Marla and sometimes Sarsai. These figures
+      are on the 272.25 sq ft standard.
+    </li>
+    <li>
+      <strong>Building plans:</strong> approved drawings record plot area in square feet, which removes any ambiguity.
+    </li>
+    <li>
+      <strong>Measure it:</strong> frontage × depth gives the area in square feet. Our
+      <a href="/plot-size-calculator/">plot size calculator</a> converts it into Marla on all three standards at once.
+    </li>
+  </ul>
+  <p>
+    When a seller or agent quotes a size, ask for it in square feet as well. Square feet mean the same thing everywhere, so
+    the question settles which Marla they mean before any money changes hands.
+  </p>
+</GuideLayout>
